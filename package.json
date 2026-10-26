@@ -1,0 +1,7 @@
+{
+  "name": "job-radar",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Remote UI/UX and Claude Code job board for Nigeria-based applicants, with a 10-day freshness rule.",
+  "engines": { "node": ">=18" }
+}

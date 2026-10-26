@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Job Radar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F5F3EE; --surface:#FFFFFF; --ink:#17161B; --muted:#6C6976; --line:#E5E1D8; --chip:#EEEBE4;
+  --accent:#3B39E8; --accent-soft:#E9E8FF; --green:#0E7F57; --green-soft:#DDF3EA;
+  --amber:#9A6200; --amber-soft:#FBEFD6; --rose:#B4361A; --rose-soft:#FBE4DC; --violet:#7A2FC9; --violet-soft:#F0E5FC;
+  --shadow:0 1px 2px rgba(20,18,30,.05),0 6px 24px -12px rgba(20,18,30,.12);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E0E11; --surface:#17171C; --ink:#F2F1ED; --muted:#9D9AA8; --line:#2A2931; --chip:#212027;
+    --accent:#8F8DFF; --accent-soft:#25244A; --green:#4FD6A2; --green-soft:#11302A;
+    --amber:#F1B54C; --amber-soft:#33280F; --rose:#FF8D6E; --rose-soft:#3A1E17; --violet:#C49BFF; --violet-soft:#2C1F40;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 28px -14px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E0E11; --surface:#17171C; --ink:#F2F1ED; --muted:#9D9AA8; --line:#2A2931; --chip:#212027;
+  --accent:#8F8DFF; --accent-soft:#25244A; --green:#4FD6A2; --green-soft:#11302A;
+  --amber:#F1B54C; --amber-soft:#33280F; --rose:#FF8D6E; --rose-soft:#3A1E17; --violet:#C49BFF; --violet-soft:#2C1F40;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 28px -14px rgba(0,0,0,.6);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 16px 64px}
+header{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end;justify-content:space-between;margin-bottom:22px}
+.brand h1{font:700 clamp(30px,5vw,44px)/1 "Space Grotesk",Inter,sans-serif;letter-spacing:-.03em;margin:0 0 8px;display:flex;align-items:center;gap:12px}
+.pulse{width:12px;height:12px;border-radius:50%;background:var(--green);box-shadow:0 0 0 0 var(--green);animation:p 2.2s infinite}
+@keyframes p{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--green) 60%,transparent)}70%{box-shadow:0 0 0 12px transparent}100%{box-shadow:0 0 0 0 transparent}}
+.brand p{margin:0;color:var(--muted);max-width:620px}
+.crit{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.crit span{font-size:12.5px;font-weight:500;padding:4px 10px;border-radius:99px;background:var(--surface);border:1px solid var(--line)}
+.head-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+button{font:inherit;color:inherit;cursor:pointer}
+.btn{border:1px solid var(--line);background:var(--surface);padding:9px 14px;border-radius:10px;font-weight:600;font-size:14px;display:inline-flex;align-items:center;gap:8px;box-shadow:var(--shadow)}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn:disabled{opacity:.6;cursor:wait}
+.spin{width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:s .7s linear infinite;display:none}
+.loading .spin{display:inline-block}
+@keyframes s{to{transform:rotate(360deg)}}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:18px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:var(--shadow)}
+.stat b{display:block;font:700 28px/1.1 "Space Grotesk",sans-serif;letter-spacing:-.02em}
+.stat span{color:var(--muted);font-size:13px}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px}
+.tabs{display:inline-flex;background:var(--chip);padding:4px;border-radius:12px;gap:2px}
+.tabs button{border:0;background:transparent;padding:7px 14px;border-radius:9px;font-weight:600;font-size:14px;color:var(--muted)}
+.tabs button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+.search{flex:1 1 220px;min-width:0;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 12px;font:inherit;color:inherit}
+.toggles{display:flex;flex-wrap:wrap;gap:6px}
+.tg{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:6px 12px;font-size:13px;font-weight:500;color:var(--muted)}
+.tg[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.sources{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--muted);margin:6px 0 20px}
+.sources i{font-style:normal;font-weight:600}
+.ok{color:var(--green)} .bad{color:var(--rose)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:10px;box-shadow:var(--shadow);position:relative}
+.card.archived{opacity:.55}
+.row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.pill{font-size:12px;font-weight:600;padding:3px 9px;border-radius:99px;background:var(--chip);color:var(--muted);white-space:nowrap}
+.pill.design{background:var(--accent-soft);color:var(--accent)}
+.pill.claude{background:var(--violet-soft);color:var(--violet)}
+.pill.pay{background:var(--green-soft);color:var(--green)}
+.pill.nopay{background:var(--amber-soft);color:var(--amber)}
+.pill.re{background:var(--rose-soft);color:var(--rose)}
+.pill.new{background:var(--ink);color:var(--bg)}
+.age{margin-left:auto;font-size:12.5px;color:var(--muted)}
+.card h3{font:600 19px/1.25 "Space Grotesk",sans-serif;letter-spacing:-.01em;margin:2px 0 0}
+.co{color:var(--muted);font-weight:500;font-size:14px}
+.meta{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font-size:13.5px}
+.meta dt{color:var(--muted)} .meta dd{margin:0}
+.note{font-size:13.5px;color:var(--muted);margin:0}
+.fresh{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.bar{flex:1;height:5px;border-radius:99px;background:var(--chip);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--green);border-radius:99px}
+.bar i.warn{background:var(--amber)} .bar i.end{background:var(--rose)}
+.actions{display:flex;gap:6px;margin-top:auto;padding-top:4px}
+.actions a{flex:1;text-align:center;text-decoration:none;background:var(--ink);color:var(--bg);padding:9px 12px;border-radius:10px;font-weight:600;font-size:14px}
+.ic{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 11px;font-size:13px;font-weight:600;color:var(--muted)}
+.ic[aria-pressed="true"]{color:var(--green);border-color:var(--green);background:var(--green-soft)}
+.section-title{font:600 13px/1 Inter,sans-serif;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:30px 0 12px}
+.empty{padding:40px 20px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:16px}
+footer{margin-top:40px;font-size:12.5px;color:var(--muted);line-height:1.6}
+footer b{color:var(--ink)}
+@media (max-width:720px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <h1><span class="pulse"></span>Job Radar</h1>
+      <p>Fresh remote UI/UX and Claude Code roles you can do from Nigeria. Anything not advertised in the last 10 days drops off automatically, and comes back if it's re-posted.</p>
+      <div class="crit"><span>UI/UX · Product design</span><span>Claude Code</span><span>$1,000+/month</span><span>Remote from Nigeria</span><span>≤ 10 days old</span></div>
+    </div>
+    <div class="head-actions">
+      <button class="btn" id="theme" title="Toggle light/dark" aria-label="Toggle light or dark theme"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg></button>
+      <button class="btn primary" id="refresh"><span class="spin"></span><span id="refreshLabel">Fetch latest</span></button>
+    </div>
+  </header>
+
+  <section class="stats" id="stats"></section>
+
+  <div class="controls">
+    <div class="tabs" role="group" aria-label="Track">
+      <button data-track="all" aria-pressed="true">All</button>
+      <button data-track="design" aria-pressed="false">UI/UX</button>
+      <button data-track="claude" aria-pressed="false">Claude Code</button>
+      <button data-track="saved" aria-pressed="false">Saved</button>
+    </div>
+    <input class="search" id="q" type="search" placeholder="Search title, company, skill…">
+  </div>
+  <div class="toggles">
+    <button class="tg" id="tPay" aria-pressed="false">Only pay confirmed $1k+</button>
+    <button class="tg" id="tUnclear" aria-pressed="false">Include unclear locations</button>
+    <button class="tg" id="tArchive" aria-pressed="false">Show removed (&gt;10 days)</button>
+  </div>
+  <div class="sources" id="sources"></div>
+
+  <div id="live"></div>
+  <div id="archive"></div>
+
+  <footer>
+    <b>How the 10-day rule works:</b> every listing keeps a history of the dates it was advertised. Its age is counted from the <i>most recent</i> advertisement. Past 10 days it's removed; if the same company posts the same role again, it returns with a "Re-advertised" tag.<br>
+    <b>Pay:</b> "Pay confirmed" means the listing states $1,000+/month (yearly and hourly pay are converted; hourly assumes full-time). Listings with no pay stated are kept but tagged "Pay not listed". Anything stated below $1,000/month is hidden.<br>
+    <b>Live sources:</b> Remotive, Jobicy, Remote OK and Himalayas public job APIs, fetched from your browser (auto-refresh every 6 hours when open). Some may be blocked by the browser; the verified picks still show. Data is saved in this browser only.
+  </footer>
+</div>
+
+<script>
+(function(){
+const DAY = 864e5, WINDOW = 10, MIN_MONTHLY = 1000, STORE_KEY = 'jobradar.v1', AUTO_MS = 6*3600e3;
+
+/* Verified by hand on 26 Oct 2026. ads = every date the role was advertised. */
+const SEED = [
+  {title:'Sr UI/UX Designer', company:'Revpanda', url:'https://himalayas.app/companies/revpanda/jobs/sr-ui-ux-designer-6194227814', ads:['2026-10-25'], location:'Worldwide · open to all countries', type:'Full-time · Senior (3+ yrs)', track:['design'], elig:'yes', pay:null, note:'iGaming UI/UX. Figma, prototyping, A/B testing; "competitive salary", work from anywhere.', source:'Himalayas'},
+  {title:'UI/UX Designer', company:'Zoftify', url:'https://himalayas.app/companies/zoftify-travel-software-development/jobs/ui-ux-designer', ads:['2026-10-24'], location:'Worldwide · 100% remote', type:'Full-time · Mid (2+ yrs)', track:['design'], elig:'yes', pay:null, note:'Travel-tech agency, mobile + web apps in Figma for clients in DE, CH, UK, US. Paid in competitive salary + bonuses.', source:'Himalayas'},
+  {title:'Lead Product Designer', company:'Zoftify', url:'https://himalayas.app/companies/zoftify-travel-software-development/jobs/lead-product-designer', ads:['2026-10-24'], location:'Worldwide · 100% remote', type:'Full-time · Senior (5+ yrs)', track:['design'], elig:'yes', pay:null, note:'Lead design on international projects, run client workshops, mentor designers.', source:'Himalayas'},
+  {title:'Lead UX/UI Designer', company:'Prism Studio', url:'https://himalayas.app/companies/prism-studio/jobs/lead-ux-ui-designer-8750788806', ads:['2026-10-23'], location:'Worldwide, must work CET ±2h (Nigeria fits)', type:'Full-time · Senior (5+ yrs)', track:['design'], elig:'yes', pay:null, note:'Game UI for a PC/console shooter. Needs a shipped PC/console title and Unreal Engine UI experience.', source:'Himalayas'},
+  {title:'Agentic UX Designer', company:'Agentplace', url:'https://himalayas.app/companies/agentplace/jobs/agentic-ux-designer', ads:['2026-10-23'], location:'Worldwide · open to all countries', type:'Contract · flexible hours', track:['design'], elig:'yes', pay:{min:2500,cur:'USD',period:'month',text:'From $2,500/month'}, note:'Design AI-agent builder UX and chat interfaces. Apply by emailing 3–5 UI improvements for agentplace.io to nikita@agentplace.io.', source:'Himalayas'},
+  {title:'AI Agent Builder (Vibe Coder)', company:'Agentplace', url:'https://himalayas.app/companies/agentplace/jobs/ai-agent-builder-vibe-coder', ads:['2026-10-23'], location:'Worldwide · open to all countries', type:'Contract · flexible hours', track:['claude','design'], elig:'yes', pay:{min:1500,cur:'USD',period:'month',text:'From $1,500/month'}, note:'UX + vibe coding to build AI agents for real businesses. Test task: build an agent on agentplace.io and email the link.', source:'Himalayas'},
+  {title:'Product Designer & Builder (SmartyMe)', company:'Stellar Tech', url:'https://himalayas.app/companies/stellar-tech/jobs/product-designer-builder-for-smartyme', ads:['2026-08-12','2026-10-23'], location:'Worldwide · open to all countries', type:'Contract · Mid (3+ yrs)', track:['design','claude'], elig:'yes', pay:null, note:'Product designer who builds working prototypes in Claude Code/Codex for a 1M+ user learning app. Strong match for design + Claude Code.', source:'Himalayas'},
+  {title:'AI Engineer', company:'S-PRO', url:'https://himalayas.app/companies/s-pro/jobs/ai-engineer', ads:['2026-08-14','2026-10-26'], location:'Worldwide · open to all countries', type:'Full-time · Senior (4+ yrs)', track:['claude'], elig:'yes', pay:null, note:'Swiss software firm. Python, agentic frameworks, vector DBs; must be fluent with Claude Code or Codex.', source:'Himalayas'},
+  {title:'Founding Engineer', company:'Shaper Capital', url:'https://himalayas.app/companies/shaper-capital/jobs/founding-engineer-shaper-capital', ads:['2026-08-11','2026-10-22'], location:'Worldwide · open to all countries', type:'Full-time · Senior', track:['claude'], elig:'yes', pay:null, note:'First engineer at a portfolio startup; AI-assisted development (Claude Code, Cursor). Cash + equity.', source:'Himalayas'},
+  {title:'AI Engineer (Full-Stack)', company:'Hire Overseas', url:'https://ng.indeed.com/viewjob?jk=b4619cb16ac9c8a3', ads:['2026-10-21'], location:'Lagos, Nigeria · remote, paid in USD', type:'Full-time', track:['claude'], elig:'yes', pay:null, note:'Builds production AI systems with Claude Code as the primary tool. Date is when the listing was seen on Indeed.', source:'Indeed'},
+  {title:'Senior Software Engineer (Codex / Claude Code)', company:'G2i', url:'https://himalayas.app/companies/g2i/jobs/senior-software-engineer-openai-codex-claude-code-or-cursor', ads:['2026-10-01'], location:'Worldwide', type:'Contract · 10–20 hrs/week', track:['claude'], elig:'yes', pay:{min:100,max:200,cur:'USD',period:'hour',text:'$100–$200/hour'}, note:'Evaluating AI coding agents. Older than 10 days, so it sits in "removed" until re-posted.', source:'Himalayas'}
+];
+
+/* ---------- state ---------- */
+let state;
+try{ state = JSON.parse(localStorage.getItem(STORE_KEY)) || null }catch(e){ state = null }
+if(!state || !state.jobs) state = {jobs:{}, meta:{saved:{}, applied:{}, lastFetch:0, sources:{}}};
+state.meta.saved ||= {}; state.meta.applied ||= {}; state.meta.sources ||= {};
+const save = () => { try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)) }catch(e){} };
+
+const ui = {track:'all', q:'', payOnly:false, unclear:false, archive:false};
+
+/* ---------- helpers ---------- */
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const strip = s => String(s || '').replace(/<[^>]+>/g,' ').replace(/&[a-z#0-9]+;/gi,' ').replace(/\s+/g,' ');
+const normKey = (co, t) => (String(co||'').toLowerCase().replace(/[^a-z0-9]/g,'') + '|' + String(t||'').toLowerCase().replace(/\([^)]*\)/g,'').replace(/\b(remote|100%|worldwide|anywhere|full[- ]?time|contract)\b/g,'').replace(/[^a-z0-9]/g,''));
+const pad = n => String(n).padStart(2,'0');
+const dayStr = d => d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+function toDate(v){
+  if(v == null || v === '') return null;
+  if(typeof v === 'number') return new Date(v < 1e12 ? v*1000 : v);
+  let s = String(v).trim();
+  if(/^\d+$/.test(s)) return toDate(+s);
+  if(/^\d{4}-\d{2}-\d{2} \d/.test(s)) s = s.replace(' ','T');
+  const d = new Date(s); return isNaN(d) ? null : d;
+}
+function ageDays(ds){
+  const [y,m,d] = ds.split('-').map(Number);
+  const then = new Date(y, m-1, d), now = new Date(), today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.max(0, Math.round((today - then)/DAY));
+}
+const fmtDate = ds => { const [y,m,d] = ds.split('-').map(Number); return new Date(y,m-1,d).toLocaleDateString(undefined,{day:'numeric',month:'short'}) };
+
+/* ---------- pay ---------- */
+const RATES = {USD:1,EUR:1.08,GBP:1.27,CAD:0.73,AUD:0.66,CHF:1.12,PLN:0.25,SEK:0.095,NOK:0.093,DKK:0.145,INR:0.012,BRL:0.18,MXN:0.055,ZAR:0.055,NGN:0.00065};
+const PER = {year:1/12, month:1, week:4.33, day:21, hour:160};
+function periodFrom(s){
+  s = String(s||'').toLowerCase();
+  if(/hour|hr|\/h\b/.test(s)) return 'hour';
+  if(/month|\bmo\b|\/m\b/.test(s)) return 'month';
+  if(/week|\bwk\b/.test(s)) return 'week';
+  if(/\bday|daily/.test(s)) return 'day';
+  if(/year|\byr\b|annual|\bpa\b|p\.a/.test(s)) return 'year';
+  return null;
+}
+function parsePayText(s){
+  if(!s || !/\d/.test(s)) return null;
+  const low = s.toLowerCase();
+  const cur = /€|eur/.test(low) ? 'EUR' : /£|gbp/.test(low) ? 'GBP' : /cad|ca\$/.test(low) ? 'CAD' : /aud|a\$/.test(low) ? 'AUD' : /chf/.test(low) ? 'CHF' : /pln|zł/.test(low) ? 'PLN' : /inr|₹/.test(low) ? 'INR' : 'USD';
+  const nums = [...low.matchAll(/(\d[\d,]*\.?\d*)\s*(k)?/g)].map(m => parseFloat(m[1].replace(/,/g,'')) * (m[2] ? 1000 : 1)).filter(n => n > 0);
+  if(!nums.length) return null;
+  let period = periodFrom(low);
+  const ref = nums[0];
+  if(!period) period = ref >= 20000 ? 'year' : ref >= 1000 ? 'month' : ref < 300 ? 'hour' : null;
+  if(!period) return null;
+  return {min:nums[0], max:nums[1] || nums[0], cur, period, text:s.trim()};
+}
+function monthlyUSD(p){
+  if(!p) return null;
+  const rate = RATES[(p.cur||'USD').toUpperCase()], f = PER[p.period];
+  const v = p.min || p.max;
+  if(!rate || !f || !v) return null;
+  return Math.round(v * rate * f);
+}
+
+/* ---------- classification ---------- */
+function classify(j){
+  const title = (j.title||'').toLowerCase(), all = title + ' ' + (j.text||'').toLowerCase();
+  const tracks = [];
+  const designTitle = /\bui\b|\bux\b|ui\/ux|ux\/ui|product design|user experience|user interface|interaction design|design system|figma/.test(title);
+  const notDesign = /graphic|instructional|interior|packaging|apparel|fashion|landscape|mechanical|electrical|civil|kitchen|floral|copywriter|researcher only/.test(title);
+  if(designTitle && !notDesign) tracks.push('design');
+  if(/claude/.test(all)) tracks.push('claude');
+  return tracks;
+}
+function eligibility(j){
+  if(Array.isArray(j.restrictions)){
+    if(j.restrictions.length === 0) return 'yes';
+    const n = j.restrictions.map(x => typeof x === 'string' ? x : (x && (x.name || x.alpha2 || x.code)) || '').join(' ').toLowerCase();
+    return /nigeria|\bng\b|africa|emea/.test(n) ? 'yes' : 'no';
+  }
+  const t = (j.location||'').toLowerCase().trim();
+  if(!t) return 'unclear';
+  if(/nigeria|africa|emea|worldwide|anywhere|global|all countries|international|work from anywhere/.test(t)) return 'yes';
+  if(/usa|united states|\bus\b|canada|\buk\b|united kingdom|europe|\beu\b|latam|latin america|apac|asia|india|brazil|mexico|germany|poland|philippines|australia|spain|france|portugal|ukraine|argentina|americas/.test(t)) return 'no';
+  return 'unclear';
+}
+
+/* ---------- ingest ---------- */
+function ingest(j, isSeed){
+  const key = normKey(j.company, j.title);
+  if(!key || key === '|') return;
+  const ads = (j.ads || [(() => { const d = toDate(j.posted); return d ? dayStr(d) : null })()]).filter(Boolean);
+  if(!ads.length) return;
+  const cur = state.jobs[key];
+  if(!cur){
+    state.jobs[key] = {...j, key, ads:[...new Set(ads)].sort(), sources:[j.source], seed:!!isSeed, firstSeen:Date.now()};
+    delete state.jobs[key].text; delete state.jobs[key].posted;
+    return;
+  }
+  ads.forEach(a => { if(!cur.ads.includes(a)) cur.ads.push(a) });
+  cur.ads.sort();
+  if(j.source && !cur.sources.includes(j.source)) cur.sources.push(j.source);
+  if(!cur.pay && j.pay) cur.pay = j.pay;
+  if((!cur.location || cur.elig !== 'yes') && j.elig === 'yes'){ cur.location = j.location; cur.elig = 'yes' }
+  if(isSeed){ Object.assign(cur, {url:j.url, note:j.note, type:j.type, track:j.track, seed:true}) }
+  else if(j.url && !cur.seed) cur.url = j.url;
+}
+function prepLive(raw){
+  const out = [];
+  for(const j of raw){
+    if(!j || !j.title || !j.company) continue;
+    j.title = strip(j.title).trim(); j.company = strip(j.company).trim();
+    const track = classify(j); if(!track.length) continue;
+    const pay = j.pay || parsePayText(j.payText);
+    const elig = eligibility(j);
+    if(elig === 'no') continue;
+    out.push({title:j.title, company:j.company, url:j.url, posted:j.posted, location:j.location || (Array.isArray(j.restrictions) && !j.restrictions.length ? 'Worldwide' : ''), type:j.type||'', track, elig, pay, note:'', source:j.source});
+  }
+  return out;
+}
+
+/* ---------- sources ---------- */
+async function fetchJSON(url){
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 20000);
+  try{ const r = await fetch(url, {signal:ctl.signal}); if(!r.ok) throw new Error('HTTP '+r.status); return await r.json() }
+  finally{ clearTimeout(t) }
+}
+/* On Vercel, feeds go through /api/proxy (no browser blocking, cached 6h). Opened as a file, they're fetched directly. */
+const HOSTED = /^https?:$/.test(location.protocol);
+async function getJSON(url){
+  if(HOSTED){ try{ return await fetchJSON('/api/proxy?url=' + encodeURIComponent(url)) }catch(e){} }
+  return fetchJSON(url);
+}
+async function multi(urls, fn){
+  const res = await Promise.allSettled(urls.map(getJSON));
+  const ok = res.filter(r => r.status === 'fulfilled');
+  if(!ok.length) throw (res[0].reason || new Error('failed'));
+  return ok.flatMap(r => fn(r.value));
+}
+const SOURCES = {
+  'Remotive': () => multi([
+      'https://remotive.com/api/remote-jobs?category=design',
+      'https://remotive.com/api/remote-jobs?search=claude'
+    ], d => (d.jobs||[]).map(j => ({title:j.title, company:j.company_name, url:j.url, posted:j.publication_date, location:j.candidate_required_location, payText:j.salary, type:(j.job_type||'').replace(/_/g,' '), text:(j.tags||[]).join(' ')+' '+strip(j.description).slice(0,5000), source:'Remotive'}))),
+  'Jobicy': () => multi([
+      'https://jobicy.com/api/v2/remote-jobs?count=50&tag=ui%20ux',
+      'https://jobicy.com/api/v2/remote-jobs?count=50&tag=product%20designer',
+      'https://jobicy.com/api/v2/remote-jobs?count=50&tag=claude'
+    ], d => (d.jobs||[]).map(j => {
+      const min = +(j.salaryMin ?? j.annualSalaryMin ?? 0), max = +(j.salaryMax ?? j.annualSalaryMax ?? 0);
+      return {title:j.jobTitle, company:j.companyName, url:j.url, posted:j.pubDate, location:j.jobGeo, type:[].concat(j.jobType||[]).join(', '),
+        pay: (min||max) ? {min, max, cur:j.salaryCurrency||'USD', period: periodFrom(j.salaryPeriod) || (j.annualSalaryMin ? 'year' : (min >= 20000 ? 'year' : 'month')), text:''} : null,
+        text:(j.jobExcerpt||'')+' '+strip(j.jobDescription).slice(0,5000), source:'Jobicy'};
+    })),
+  'Remote OK': () => multi(['https://remoteok.com/api'], d => (Array.isArray(d)?d:[]).filter(j => j && j.position).map(j => ({title:j.position, company:j.company, url:j.url || j.apply_url, posted:j.date || j.epoch, location:j.location, pay: j.salary_min ? {min:j.salary_min, max:j.salary_max, cur:'USD', period:'year', text:''} : null, text:(j.tags||[]).join(' ')+' '+strip(j.description).slice(0,5000), source:'Remote OK'}))),
+  'Himalayas': () => multi(
+      ['ui ux designer','product designer','claude code'].map(q => 'https://himalayas.app/jobs/api/search?q='+encodeURIComponent(q)+'&sort=recent'),
+      d => (d.jobs||[]).map(j => ({title:j.title, company:j.companyName, url:j.applicationLink || j.guid, posted:j.pubDate, restrictions: j.locationRestrictions || [], type:j.employmentType || '',
+        pay: j.minSalary ? {min:j.minSalary, max:j.maxSalary, cur:j.currency || 'USD', period: periodFrom(j.salaryPeriod) || 'year', text:''} : null,
+        text:[].concat(j.categories||[]).join(' ')+' '+(j.excerpt||'')+' '+strip(j.description).slice(0,5000), source:'Himalayas'})))
+};
+
+async function refresh(){
+  const btn = document.getElementById('refresh');
+  btn.disabled = true; btn.classList.add('loading'); document.getElementById('refreshLabel').textContent = 'Fetching…';
+  const names = Object.keys(SOURCES);
+  const results = await Promise.allSettled(names.map(n => SOURCES[n]()));
+  results.forEach((r, i) => {
+    const n = names[i];
+    if(r.status === 'fulfilled'){
+      const jobs = prepLive(r.value);
+      jobs.forEach(j => ingest(j, false));
+      state.meta.sources[n] = {ok:true, count:jobs.length, at:Date.now()};
+    } else {
+      state.meta.sources[n] = {ok:false, err:String(r.reason && r.reason.message || r.reason || 'blocked'), at:Date.now()};
+    }
+  });
+  state.meta.lastFetch = Date.now();
+  save(); render();
+  btn.disabled = false; btn.classList.remove('loading'); document.getElementById('refreshLabel').textContent = 'Fetch latest';
+}
+
+/* ---------- view ---------- */
+function enrich(j){
+  const last = j.ads[j.ads.length-1], first = j.ads[0];
+  const age = ageDays(last);
+  const monthly = monthlyUSD(j.pay);
+  return {...j, last, first, age, live: age <= WINDOW, re: j.ads.length > 1, monthly,
+    payState: monthly == null ? 'unknown' : monthly >= MIN_MONTHLY ? 'ok' : 'low'};
+}
+function passes(j){
+  if(j.payState === 'low') return false;
+  if(j.elig === 'no') return false;
+  if(j.elig === 'unclear' && !ui.unclear) return false;
+  if(ui.payOnly && j.payState !== 'ok') return false;
+  if(ui.track === 'saved' && !state.meta.saved[j.key]) return false;
+  if(ui.track === 'design' && !(j.track||[]).includes('design')) return false;
+  if(ui.track === 'claude' && !(j.track||[]).includes('claude')) return false;
+  if(ui.q){ const hay = [j.title,j.company,j.note,j.location,j.type,(j.track||[]).join(' ')].join(' ').toLowerCase(); if(!ui.q.split(/\s+/).every(w => hay.includes(w))) return false }
+  return true;
+}
+function card(j){
+  const left = WINDOW - j.age;
+  const pct = Math.max(0, Math.min(100, left / WINDOW * 100));
+  const barCls = left <= 0 ? 'end' : left <= 3 ? 'warn' : '';
+  const ageTxt = j.age === 0 ? 'Today' : j.age === 1 ? '1 day ago' : j.age + ' days ago';
+  const payPill = j.payState === 'ok'
+    ? `<span class="pill pay">≈ $${j.monthly.toLocaleString()}/mo${j.pay.period==='hour'?' FT':''}</span>`
+    : `<span class="pill nopay">Pay not listed</span>`;
+  const tracks = (j.track||[]).map(t => `<span class="pill ${t}">${t==='design'?'UI/UX':'Claude Code'}</span>`).join('');
+  const reTxt = j.re ? `<span class="pill re" title="First advertised ${fmtDate(j.first)}">Re-advertised</span>` : '';
+  const newTxt = j.age <= 1 && j.live ? `<span class="pill new">New</span>` : '';
+  const fresh = j.live
+    ? `<div class="fresh"><div class="bar"><i class="${barCls}" style="width:${pct}%"></i></div>${left === 0 ? 'Leaves board tomorrow' : 'Leaves board in ' + left + (left===1?' day':' days')}</div>`
+    : `<div class="fresh">Removed. Last advertised ${fmtDate(j.last)} (${j.age} days ago)</div>`;
+  const payLine = j.pay && j.pay.text ? esc(j.pay.text) : j.pay ? `${esc(j.pay.cur)} ${Number(j.pay.min).toLocaleString()}${j.pay.max && j.pay.max!==j.pay.min ? '–'+Number(j.pay.max).toLocaleString():''} / ${j.pay.period}` : 'Not stated';
+  return `<article class="card${j.live?'':' archived'}">
+    <div class="row">${tracks}${newTxt}${reTxt}<span class="age">${ageTxt}</span></div>
+    <div><h3>${esc(j.title)}</h3><div class="co">${esc(j.company)}</div></div>
+    <div class="row">${payPill}${j.elig==='unclear'?'<span class="pill">Check location</span>':''}${j.seed?'<span class="pill" title="Checked by hand">Verified pick</span>':''}</div>
+    <dl class="meta">
+      <dt>Where</dt><dd>${esc(j.location || 'Not stated')}</dd>
+      ${j.type?`<dt>Type</dt><dd>${esc(j.type)}</dd>`:''}
+      <dt>Pay</dt><dd>${payLine}</dd>
+      <dt>Posted</dt><dd>${j.ads.map(fmtDate).join(' → ')} · via ${esc((j.sources||[]).join(', '))}</dd>
+    </dl>
+    ${j.note?`<p class="note">${esc(j.note)}</p>`:''}
+    ${fresh}
+    <div class="actions">
+      <a href="${esc(j.url)}" target="_blank" rel="noopener">View &amp; apply ↗</a>
+      <button class="ic" data-save="${esc(j.key)}" aria-pressed="${!!state.meta.saved[j.key]}" title="Save">${state.meta.saved[j.key]?'★':'☆'}</button>
+      <button class="ic" data-applied="${esc(j.key)}" aria-pressed="${!!state.meta.applied[j.key]}">${state.meta.applied[j.key]?'Applied ✓':'Applied?'}</button>
+    </div>
+  </article>`;
+}
+function render(){
+  const all = Object.values(state.jobs).map(enrich).filter(j => j.payState !== 'low' && j.elig !== 'no');
+  const liveAll = all.filter(j => j.live && (j.elig === 'yes' || ui.unclear));
+  const shown = all.filter(passes);
+  const live = shown.filter(j => j.live).sort((a,b) => b.last.localeCompare(a.last) || (b.payState==='ok') - (a.payState==='ok'));
+  const gone = shown.filter(j => !j.live).sort((a,b) => b.last.localeCompare(a.last));
+
+  document.getElementById('stats').innerHTML = [
+    [liveAll.length, 'Live on the board'],
+    [liveAll.filter(j => j.age <= 1).length, 'New in the last 24h'],
+    [liveAll.filter(j => j.payState === 'ok').length, 'Pay confirmed $1k+'],
+    [all.filter(j => !j.live).length, 'Removed (> 10 days)']
+  ].map(([n,l]) => `<div class="stat"><b>${n}</b><span>${l}</span></div>`).join('');
+
+  const src = state.meta.sources, names = Object.keys(SOURCES);
+  const last = state.meta.lastFetch ? new Date(state.meta.lastFetch).toLocaleString(undefined,{weekday:'short',hour:'2-digit',minute:'2-digit'}) : 'never';
+  document.getElementById('sources').innerHTML = `<span>Last fetched: <i>${esc(last)}</i></span>` + names.map(n => {
+    const s = src[n]; if(!s) return `<span>${n}: <i>not fetched</i></span>`;
+    return s.ok ? `<span>${n}: <i class="ok">✓ ${s.count} matches</i></span>` : `<span title="${esc(s.err)}">${n}: <i class="bad">✕ unavailable</i></span>`;
+  }).join('');
+
+  document.getElementById('live').innerHTML = live.length
+    ? `<div class="section-title">On the board · ${live.length}</div><div class="grid">${live.map(card).join('')}</div>`
+    : `<div class="empty">Nothing matches right now. Try another tab, clear the search, or fetch the latest.</div>`;
+  document.getElementById('archive').innerHTML = ui.archive && gone.length
+    ? `<div class="section-title">Removed: not advertised in the last ${WINDOW} days · ${gone.length}</div><div class="grid">${gone.map(card).join('')}</div>` : '';
+}
+
+/* ---------- events ---------- */
+document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.tabs button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  ui.track = b.dataset.track; render();
+}));
+document.getElementById('q').addEventListener('input', e => { ui.q = e.target.value.trim().toLowerCase(); render() });
+[['tPay','payOnly'],['tUnclear','unclear'],['tArchive','archive']].forEach(([id,k]) => {
+  const el = document.getElementById(id);
+  el.addEventListener('click', () => { ui[k] = !ui[k]; el.setAttribute('aria-pressed', ui[k]); render() });
+});
+document.addEventListener('click', e => {
+  const s = e.target.closest('[data-save]'), a = e.target.closest('[data-applied]');
+  if(s){ const k = s.dataset.save; state.meta.saved[k] ? delete state.meta.saved[k] : state.meta.saved[k] = 1; save(); render() }
+  if(a){ const k = a.dataset.applied; state.meta.applied[k] ? delete state.meta.applied[k] : state.meta.applied[k] = 1; save(); render() }
+});
+document.getElementById('refresh').addEventListener('click', refresh);
+document.getElementById('theme').addEventListener('click', () => {
+  const r = document.documentElement, dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  r.dataset.theme = dark ? 'light' : 'dark';
+  try{ localStorage.setItem('jobradar.theme', r.dataset.theme) }catch(e){}
+});
+try{ const t = localStorage.getItem('jobradar.theme'); if(t) document.documentElement.dataset.theme = t }catch(e){}
+
+/* ---------- boot ---------- */
+SEED.forEach(j => ingest(j, true));
+save(); render();
+if(Date.now() - (state.meta.lastFetch || 0) > AUTO_MS) refresh();
+setInterval(() => { render(); if(Date.now() - state.meta.lastFetch > AUTO_MS) refresh() }, 30*60e3);
+})();
+</script>
+</body>
+</html>
