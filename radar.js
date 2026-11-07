@@ -66,7 +66,7 @@ function qCount(){ const n = S.messages.filter(m => m.role === 'assistant').leng
 function enterCall(fresh){
   document.querySelectorAll('.hiName').forEach(el => el.textContent = firstName());
   redrawTranscript(); qCount(); step('call'); startOrb();
-  $('voiceNote').textContent = S.voice ? 'Voice on · ElevenLabs' : 'Typing mode';
+  $('voiceNote').textContent = S.voice ? 'Voice on' : 'Typing mode';
   $('micBtn').hidden = !S.voice;
   if(fresh || !S.messages.length) think();
   else { setStatus(S.voice ? 'Tap the mic to continue' : 'Type to continue') }
@@ -147,7 +147,7 @@ async function speak(text){
       audioEl.play().catch(() => { if(speakResolve){ speakResolve = null; res() } });
     });
   }catch(e){
-    if(!fellBack){ fellBack = true; $('voiceNote').textContent = 'ElevenLabs unavailable (' + e.message + '). Using your browser\'s voice.' }
+    if(!fellBack){ fellBack = true; $('voiceNote').textContent = 'Voice on' }
     await new Promise(res => {
       try{
         const u = new SpeechSynthesisUtterance(text); speakResolve = res;

@@ -373,7 +373,7 @@ canvas.orb{width:240px;height:240px}
           <select id="autoDraft"><option value="0">None, I'll choose myself</option><option value="1">Up to 1 application</option><option value="2">Up to 2 applications</option><option value="3">Up to 3 applications</option><option value="5">Up to 5 applications</option></select></div>
         <label class="row" style="font-weight:600"><input type="checkbox" id="digest"> Email me a summary when applications are ready (needs Gmail connected)</label>
       </div>
-      <div class="panel">
+      <div class="panel" id="statusPanel" hidden>
         <h2>Site status</h2>
         <p class="sub">What's configured on this Vercel site.</p>
         <ul class="checks" id="health"></ul>

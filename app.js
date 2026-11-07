@@ -265,7 +265,8 @@ async function renderSettings(){
   $('autoDraft').value = String(m.settings.autoDraft ?? 2);
   $('cvState').textContent = m.cv ? `CV on file: ${m.cv.name}${m.cv.mime === 'application/pdf' ? '' : ' (text only, so it can\'t be attached; upload a PDF)'}` : 'No CV saved yet.';
   $('digest').checked = m.settings.digest !== false;
-  try{
+  $('statusPanel').hidden = !(m.balance && m.balance.owner);
+  if(m.balance && m.balance.owner) try{
     const h = await (await fetch('/api/health', {cache:'no-store'})).json();
     const li = (ok, t) => `<li>${ok ? '✅' : '⬜'} ${t}</li>`;
     $('health').innerHTML = li(h.signin, 'Google sign-in') + li(h.database, 'Database (Upstash)') + li(h.claude, 'Claude (interview, matching, drafting)') + li(h.voice, 'ElevenLabs voice') + li(h.daily, 'Daily morning run') + li(h.payments, 'Payments (Paystack)') + li(h.owner, 'Owner account (OWNER_EMAILS)') + (h.inviteOnly ? li(true, 'Invite-only (ALLOWED_EMAILS set)') : li(true, 'Open to anyone'));
