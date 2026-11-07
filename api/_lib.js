@@ -188,7 +188,42 @@ async function gmailSend(user, msg) {
   return d.id;
 }
 
+/* ---------------- credits: 2 free drafted applications, then paid packs ---------------- */
+const FREE_DRAFTS = () => Math.max(0, +(process.env.FREE_APPLICATIONS ?? 2));
+const isOwner = email => String(process.env.OWNER_EMAILS || '').toLowerCase().split(/[\s,]+/).filter(Boolean).includes(String(email || '').toLowerCase());
+// Packs: PACKS env as JSON, e.g. [{"id":"p5","apps":5,"amount":3000,"label":"Starter"}]; amount is in the main currency unit (naira).
+function packs() {
+  try { const p = JSON.parse(process.env.PACKS || ''); if (Array.isArray(p) && p.length) return p; } catch { }
+  return [
+    { id: 'p5', apps: 5, amount: 3000, label: 'Starter' },
+    { id: 'p15', apps: 15, amount: 7500, label: 'Job hunt' },
+    { id: 'p40', apps: 40, amount: 15000, label: 'All in' }
+  ];
+}
+const CURRENCY = () => (process.env.PAY_CURRENCY || 'NGN').toUpperCase();
+async function balance(user) {
+  const [used, credits] = await pipe([['GET', 'drafts_used:' + user.uid], ['GET', 'credits:' + user.uid]]);
+  const freeLeft = Math.max(0, FREE_DRAFTS() - (+used || 0));
+  return { owner: isOwner(user.email), freeLeft, credits: Math.max(0, +credits || 0), free: FREE_DRAFTS() };
+}
+// Takes one application from the free allowance first, then from paid credits. Returns the source, or null if none left.
+async function spendDraft(user) {
+  if (isOwner(user.email)) return 'owner';
+  const used = await redis('INCR', 'drafts_used:' + user.uid);
+  if (used <= FREE_DRAFTS()) return 'free';
+  await redis('DECR', 'drafts_used:' + user.uid);
+  const left = await redis('DECRBY', 'credits:' + user.uid, 1);
+  if (left >= 0) return 'credit';
+  await redis('INCRBY', 'credits:' + user.uid, 1);
+  return null;
+}
+async function refundDraft(user, source) {
+  if (source === 'free') await redis('DECR', 'drafts_used:' + user.uid);
+  if (source === 'credit') await redis('INCRBY', 'credits:' + user.uid, 1);
+}
+
 module.exports = {
+  FREE_DRAFTS, isOwner, packs, CURRENCY, balance, spendDraft, refundDraft,
   readJson, requireEnv, missingEnv, baseUrl, today, db, redis, pipe,
   encrypt, decrypt, setCookie, parseCookies, makeSession, readSession, requireUser, allowed, b64u,
   useQuota, quotaOr429, claude, extractJson, MODELS, gmailSend

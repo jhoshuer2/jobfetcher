@@ -10,6 +10,9 @@ module.exports = (req, res) => {
     claude: has('ANTHROPIC_API_KEY'),
     voice: has('ELEVENLABS_API_KEY'),
     daily: has('CRON_SECRET'),
-    inviteOnly: has('ALLOWED_EMAILS')
+    payments: has('PAYSTACK_SECRET_KEY'),
+    owner: has('OWNER_EMAILS'),
+    inviteOnly: has('ALLOWED_EMAILS'),
+    supportEmail: process.env.SUPPORT_EMAIL || ''
   });
 };

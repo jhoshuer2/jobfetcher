@@ -1,20 +1,20 @@
 // The signed-in person's own data: profile, interview, CV, settings.
-const { requireUser, readJson, db } = require('./_lib');
+const { requireUser, readJson, db, balance } = require('./_lib');
 
-const DEFAULT_SETTINGS = { threshold: 75, digest: true };
+const DEFAULT_SETTINGS = { threshold: 75, digest: true, autoDraft: 2 };
 
 module.exports = async (req, res) => {
   const user = await requireUser(req, res); if (!user) return;
   const uid = user.uid;
 
   if (req.method === 'GET') {
-    const [profile, radar, settings, cvMeta, pv] = await Promise.all([
-      db.get('profile:' + uid), db.get('radar:' + uid), db.get('settings:' + uid), db.get('cvmeta:' + uid), db.get('pv:' + uid)
+    const [profile, radar, settings, cvMeta, pv, bal] = await Promise.all([
+      db.get('profile:' + uid), db.get('radar:' + uid), db.get('settings:' + uid), db.get('cvmeta:' + uid), db.get('pv:' + uid), balance(user)
     ]);
     res.setHeader('Cache-Control', 'no-store');
     return res.status(200).json({
       user: { email: user.email, name: user.name, picture: user.picture, gmailOk: !!(user.gmailOk && user.refreshEnc) },
-      profile, radar, pv: pv || 0, cv: cvMeta, settings: { ...DEFAULT_SETTINGS, ...(settings || {}) }
+      profile, radar, pv: pv || 0, cv: cvMeta, balance: bal, settings: { ...DEFAULT_SETTINGS, ...(settings || {}) }
     });
   }
   if (req.method !== 'POST') return res.status(405).json({ error: 'GET or POST' });
@@ -38,7 +38,7 @@ module.exports = async (req, res) => {
     }
     case 'settings': {
       const s = body.settings || {};
-      const settings = { threshold: Math.max(50, Math.min(95, +s.threshold || 75)), digest: s.digest !== false };
+      const settings = { threshold: Math.max(50, Math.min(95, +s.threshold || 75)), digest: s.digest !== false, autoDraft: Math.max(0, Math.min(5, Math.round(+(s.autoDraft ?? 2)))) };
       await db.set('settings:' + uid, settings);
       return res.status(200).json({ ok: true, settings });
     }

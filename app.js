@@ -40,12 +40,19 @@ JR.saveCv = async (file) => {
 };
 
 /* ---------- routing ---------- */
-const VIEWS = ['radar','matches','review','applied','settings'];
+const VIEWS = ['radar','matches','review','applied','settings','credits'];
 function route(){
   let v = (location.hash || '').slice(1);
   if(['not-invited','signin-failed','signin-cancelled'].includes(v)){ showLanding(v); return }
   const signed = !!JR.me;
-  $('nav').hidden = !signed; $('me').hidden = !signed;
+  $('nav').hidden = !signed; $('me').hidden = !signed; $('creditPill').hidden = !signed;
+  if(signed){
+    let m;
+    if((m = v.match(/^credits-ok-(\d+)$/))){ refreshBalance(); toast(`Payment received: ${m[1]} credits added.`); history.replaceState(null, '', '#credits'); v = 'credits' }
+    else if(v === 'credits-failed'){ toast('That payment didn\'t go through. You haven\'t been charged credits.'); history.replaceState(null, '', '#credits'); v = 'credits' }
+    else if(v === 'settings-gmail-on'){ JR.me.user.gmailOk = true; toast('Gmail connected. Approved emails now send with one tap.'); history.replaceState(null, '', '#settings'); v = 'settings' }
+    updateCredits();
+  }
   if(!signed){ showLanding(); return }
   if(!VIEWS.includes(v)) v = JR.profile() && JR.me.radar && JR.me.radar.done ? 'matches' : 'radar';
   if(!JR.profile() && v !== 'radar' && v !== 'settings') v = 'radar';
@@ -56,6 +63,7 @@ function route(){
   if(v === 'review') renderReview();
   if(v === 'applied') renderApplied();
   if(v === 'settings') renderSettings();
+  if(v === 'credits') renderCredits();
 }
 function showLanding(reason){
   VIEWS.forEach(x => $('view-' + x).hidden = x !== 'radar');
@@ -70,6 +78,36 @@ function showLanding(reason){
   if(window.Radar) window.Radar.landingOrb();
 }
 
+/* ---------- Credits ---------- */
+const money = (n, cur) => { try{ return new Intl.NumberFormat(undefined, {style:'currency', currency:cur, maximumFractionDigits:0}).format(n) }catch(e){ return cur + ' ' + n } };
+function creditText(b){ if(!b) return ''; if(b.owner) return 'Unlimited'; if(b.credits) return b.credits + (b.credits === 1 ? ' credit' : ' credits') + (b.freeLeft ? ` + ${b.freeLeft} free` : ''); return b.freeLeft ? `${b.freeLeft} free left` : '0 credits' }
+function updateCredits(){ const b = JR.me && JR.me.balance; const el = $('creditPill'); if(!b){ el.hidden = true; return } el.textContent = creditText(b); el.className = 'pill ' + (b.owner || b.credits || b.freeLeft ? 'can' : 're') }
+async function refreshBalance(){ try{ const me = await api('me'); JR.me.balance = me.balance; updateCredits() }catch(e){} }
+JR.setBalance = b => { if(b && JR.me){ JR.me.balance = b; updateCredits() } };
+async function renderCredits(){
+  let d;
+  try{ d = await api('pay/packs') }catch(e){ $('creditMsg').innerHTML = `<p class="msg err">${esc(e.message)}</p>`; return }
+  JR.setBalance(d.balance);
+  const b = d.balance;
+  $('balanceStats').innerHTML = b.owner ? '<div class="stat"><b>∞</b><span>Owner, unlimited</span></div>' :
+    `<div class="stat"><b>${b.freeLeft}</b><span>Free applications left (of ${b.free})</span></div><div class="stat"><b>${b.credits}</b><span>Paid credits</span></div>`;
+  $('creditMsg').innerHTML = d.enabled ? '' : '<p class="msg warn">Payments aren\'t switched on for this site yet.</p>';
+  const per = p => money(Math.round(p.amount / p.apps), d.currency);
+  $('packGrid').innerHTML = d.packs.map((p, i) => `<article class="card"${i === 1 ? ' style="border-color:var(--teal)"' : ''}>
+      <div class="row" style="min-height:24px">${i === 1 ? '<span class="pill can">Most popular</span>' : ''}</div>
+      <h3>${esc(p.label || p.apps + ' applications')}</h3>
+      <div style="font:700 32px/1 'Space Grotesk',sans-serif;letter-spacing:-.02em">${esc(money(p.amount, d.currency))}</div>
+      <p class="muted" style="margin:0">${p.apps} applications · ${esc(per(p))} each</p>
+      <div class="actions"><button class="btn ${i === 1 ? 'teal' : 'primary'}" data-buy="${esc(p.id)}" ${d.enabled ? '' : 'disabled'}><span class="spin"></span>Buy ${p.apps} credits</button></div></article>`).join('');
+  $('orderList').innerHTML = d.orders.length ? d.orders.map(o => `<div class="li"><div><h4>${o.apps} credits</h4><div class="co">${esc(money(o.amountMinor / 100, o.currency))} · ${new Date(o.paidAt).toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'})}</div></div><span class="pill pay">Paid</span></div>`).join('') : '<p class="muted">No purchases yet.</p>';
+}
+document.addEventListener('click', async e => {
+  const b = e.target.closest('[data-buy]'); if(!b) return;
+  b.disabled = true; b.classList.add('loading');
+  try{ const {url} = await api('pay/init', {pack:b.dataset.buy}); location.href = url }
+  catch(err){ toast(err.message); b.disabled = false; b.classList.remove('loading') }
+});
+
 /* ---------- Matches ---------- */
 let syncing = false;
 async function loadFeed(){ JR.feed = await api('jobs'); updateBadge(); return JR.feed }
@@ -83,6 +121,7 @@ async function sync(force){
       updateBadge(); renderMatches();
       if(!JR.feed.pending || !JR.feed.ran || !JR.feed.ran.scored) break;
     }
+    if(JR.feed.ran && JR.feed.ran.drafted) refreshBalance();
     $('mMsg').innerHTML = JR.feed.ran && JR.feed.ran.drafted ? `<p class="msg info">${JR.feed.ran.drafted} new application${JR.feed.ran.drafted > 1 ? 's' : ''} drafted. <a href="#review">Review now</a></p>` : '';
   }catch(e){ $('mMsg').innerHTML = `<p class="msg err">${esc(e.message)}</p>` }
   finally{ syncing = false; btn.disabled = false; btn.classList.remove('loading'); $('syncLabel').textContent = 'Check now' }
@@ -107,7 +146,7 @@ function matchCard(j){
     <dl class="meta"><dt>Where</dt><dd>${esc(j.location || 'Not stated')}</dd>${j.type ? `<dt>Type</dt><dd>${esc(j.type)}</dd>` : ''}<dt>Posted</dt><dd>${j.ads.map(fmtDate).join(' → ')} · ${esc(j.sources.join(', '))}</dd></dl>
     <div class="fresh"><div class="bar"><i class="${left <= 3 ? 'warn' : ''}" style="width:${pct}%"></i></div>${left <= 0 ? 'Leaves tomorrow' : 'Leaves in ' + left + (left === 1 ? ' day' : ' days')}</div>
     <div class="actions">
-      ${j.app ? `<a class="btn teal" href="#review" data-focus="${esc(j.key)}">Review application</a>` : `<button class="btn teal" data-draft="${esc(j.key)}"><span class="spin"></span>Prepare application</button>`}
+      ${j.app ? `<a class="btn teal" href="#review" data-focus="${esc(j.key)}">Review application</a>` : `<button class="btn teal" data-draft="${esc(j.key)}" title="Uses 1 credit"><span class="spin"></span>Prepare application</button>`}
       <a class="btn" href="${esc(j.url)}" target="_blank" rel="noopener">Job ↗</a>
       <button class="btn ghost" data-skip="${esc(j.key)}" title="Not for me, don't show again">Pass</button>
     </div>
@@ -141,7 +180,9 @@ $('syncBtn').addEventListener('click', () => sync(true));
 async function appAction(body){ const {app} = await api('apps', body); const f = JR.feed; if(f){ const i = f.apps.findIndex(a => a.key === app.key); i >= 0 ? f.apps[i] = app : f.apps.push(app); const j = f.jobs.find(x => x.key === app.key); if(j) j.app = {status:app.status, method:app.method}; if(['sent','applied','skipped'].includes(app.status)) f.jobs = f.jobs.filter(x => x.key !== app.key); } updateBadge(); return app }
 document.addEventListener('click', async e => {
   const d = e.target.closest('[data-draft]'), s = e.target.closest('[data-skip]');
-  if(d){ d.disabled = true; d.classList.add('loading'); try{ await appAction({action:'draft', key:d.dataset.draft}); location.hash = '#review' }catch(err){ toast(err.message); d.disabled = false; d.classList.remove('loading') } }
+  if(d){ d.disabled = true; d.classList.add('loading');
+    try{ await appAction({action:'draft', key:d.dataset.draft}); refreshBalance(); location.hash = '#review' }
+    catch(err){ toast(err.message); d.disabled = false; d.classList.remove('loading'); if(err.code === 'no_credits') location.hash = '#credits' } }
   if(s){ s.disabled = true; try{ await appAction({action:'mark', key:s.dataset.skip, status:'skipped'}); renderMatches(); toast('Got it, Radar won\'t show that one again.') }catch(err){ toast(err.message); s.disabled = false } }
 });
 function updateBadge(){
@@ -152,20 +193,21 @@ async function renderReview(){
   if(!JR.feed) try{ await loadFeed() }catch(e){ $('reviewMsg').innerHTML = `<p class="msg err">${esc(e.message)}</p>`; return }
   const apps = JR.feed.apps.filter(a => a.status === 'review' && a.body !== undefined);
   const gmail = JR.me.user.gmailOk, cv = JR.me.cv;
-  $('reviewMsg').innerHTML = !gmail ? '<p class="msg warn">Gmail sending isn\'t switched on for your account, so email applications open in your own email app instead. To let Radar send them, sign out and back in and tick "Send email on your behalf".</p>' : '';
+  $('reviewMsg').innerHTML = !gmail ? '<p class="msg info">Email applications open in your own email, ready to send. Attach your CV before sending. Want one-tap sending with your CV attached automatically? <a href="/api/auth/gmail">Connect Gmail</a></p>' : '';
   $('reviewList').innerHTML = apps.length ? apps.map(a => {
     const m = (JR.feed.jobs.find(j => j.key === a.key) || {}).match;
     const needs = a.needsFromYou && a.needsFromYou.length ? `<div class="needs"><b>Before applying, this job asks for:</b><ul>${a.needsFromYou.map(n => `<li>${esc(n)}</li>`).join('')}</ul></div>` : '';
     const head = `<div class="app-head"><div><div class="row" style="margin-bottom:6px">${a.method === 'email' ? '<span class="pill can">Radar can send this</span>' : '<span class="pill you">You apply on their form</span>'}${m ? `<span class="pill">Match ${m.score}</span>` : ''}</div><h3>${esc(a.job.title)}</h3><div class="co">${esc(a.job.company)}${a.job.location ? ' · ' + esc(a.job.location) : ''}</div></div><a class="btn sm" href="${esc(a.job.url)}" target="_blank" rel="noopener">View job ↗</a></div>`;
     if(a.method === 'email'){
-      const attach = cv && cv.mime === 'application/pdf' ? `📎 ${esc(cv.name)} will be attached` : '⚠️ No PDF CV saved, so nothing will be attached (add one in Settings)';
+      const attach = !gmail ? '📎 Remember to attach your CV in your email app.' : cv && cv.mime === 'application/pdf' ? `📎 ${esc(cv.name)} will be attached` : '⚠️ No PDF CV saved, so nothing will be attached (add one in Settings)';
       const mailto = `mailto:${encodeURIComponent(a.to)}?subject=${encodeURIComponent(a.subject)}&body=${encodeURIComponent(a.body)}`;
+      const gweb = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(a.to)}&su=${encodeURIComponent(a.subject)}&body=${encodeURIComponent(a.body)}`;
       return `<div class="app" data-app="${esc(a.key)}">${head}${needs}
         <div class="field"><label>To</label><input data-f="to" value="${esc(a.to)}"></div>
         <div class="field"><label>Subject</label><input data-f="subject" value="${esc(a.subject)}"></div>
         <div class="field"><label>Message</label><textarea data-f="body" style="min-height:220px">${esc(a.body)}</textarea></div>
         <p class="muted" style="font-size:13px;margin:-4px 0 14px">${attach}</p>
-        <div class="row" style="gap:8px">${gmail ? `<button class="btn teal" data-send="${esc(a.key)}"><span class="spin"></span>Approve &amp; send from Gmail</button>` : `<a class="btn teal" href="${esc(mailto)}" data-mailto="${esc(a.key)}">Open in my email app</a><button class="btn" data-mark="applied" data-key="${esc(a.key)}">I sent it</button>`}<button class="btn ghost" data-mark="skipped" data-key="${esc(a.key)}">Pass</button></div></div>`;
+        <div class="row" style="gap:8px">${gmail ? `<button class="btn teal" data-send="${esc(a.key)}"><span class="spin"></span>Approve &amp; send from Gmail</button>` : `<a class="btn teal" href="${esc(mailto)}">Open in my email app</a><a class="btn" href="${esc(gweb)}" target="_blank" rel="noopener">Open in Gmail web</a><button class="btn" data-mark="applied" data-key="${esc(a.key)}">I sent it ✓</button>`}<button class="btn ghost" data-mark="skipped" data-key="${esc(a.key)}">Pass</button></div></div>`;
     }
     return `<div class="app" data-app="${esc(a.key)}">${head}${needs}
       <p class="muted" style="margin:0 0 12px;font-size:14px">This job uses an application form, so Radar can't submit it. Here's everything you need. It should take about 2 minutes.</p>
@@ -219,16 +261,18 @@ async function renderApplied(){
 async function renderSettings(){
   const m = JR.me;
   $('acct').textContent = `Signed in as ${m.user.name ? m.user.name + ' · ' : ''}${m.user.email}`;
-  $('gmailState').innerHTML = m.user.gmailOk ? '<p class="msg info">✓ Radar can send approved applications from your Gmail.</p>' : '<p class="msg warn">Gmail sending is off. <a href="/api/auth/login">Reconnect Google</a> and tick "Send email on your behalf" to turn it on.</p>';
+  $('gmailConnect').innerHTML = m.user.gmailOk ? '<p class="msg info" style="margin:0">✓ Connected. Approved email applications send from ' + esc(m.user.email) + ' with your CV attached.</p>' : '<a class="btn teal" href="/api/auth/gmail">Connect Gmail</a> <span class="muted" style="font-size:13px;margin-left:8px">Google will show a permission screen. You can disconnect anytime at myaccount.google.com/permissions.</span>';
+  $('autoDraft').value = String(m.settings.autoDraft ?? 2);
   $('cvState').textContent = m.cv ? `CV on file: ${m.cv.name}${m.cv.mime === 'application/pdf' ? '' : ' (text only, so it can\'t be attached; upload a PDF)'}` : 'No CV saved yet.';
   $('digest').checked = m.settings.digest !== false;
   try{
     const h = await (await fetch('/api/health', {cache:'no-store'})).json();
     const li = (ok, t) => `<li>${ok ? '✅' : '⬜'} ${t}</li>`;
-    $('health').innerHTML = li(h.signin, 'Google sign-in') + li(h.database, 'Database (Upstash)') + li(h.claude, 'Claude (interview, matching, drafting)') + li(h.voice, 'ElevenLabs voice') + li(h.daily, 'Daily morning run') + li(h.inviteOnly, 'Invite list (ALLOWED_EMAILS)');
+    $('health').innerHTML = li(h.signin, 'Google sign-in') + li(h.database, 'Database (Upstash)') + li(h.claude, 'Claude (interview, matching, drafting)') + li(h.voice, 'ElevenLabs voice') + li(h.daily, 'Daily morning run') + li(h.payments, 'Payments (Paystack)') + li(h.owner, 'Owner account (OWNER_EMAILS)') + (h.inviteOnly ? li(true, 'Invite-only (ALLOWED_EMAILS set)') : li(true, 'Open to anyone'));
   }catch(e){ $('health').innerHTML = '<li>Couldn\'t check.</li>' }
 }
 $('digest').addEventListener('change', async () => { try{ const r = await api('me', {action:'settings', settings:{...JR.me.settings, digest:$('digest').checked}}); JR.me.settings = r.settings; toast('Saved.') }catch(e){ toast(e.message) } });
+$('autoDraft').addEventListener('change', async () => { try{ const r = await api('me', {action:'settings', settings:{...JR.me.settings, autoDraft:+$('autoDraft').value}}); JR.me.settings = r.settings; toast('Saved.') }catch(e){ toast(e.message) } });
 $('cv2').addEventListener('change', async e => { const f = e.target.files[0]; if(!f) return; if(f.size > 3e6) return toast('Max 3 MB'); try{ await JR.saveCv(f); renderSettings(); toast('CV updated.') }catch(err){ toast(err.message) } });
 $('editProfile').addEventListener('click', () => { window.Radar && window.Radar.editProfile() });
 $('redo2').addEventListener('click', e => { e.preventDefault(); window.Radar && window.Radar.redo() });

@@ -1,5 +1,5 @@
 // Applications: prepare a draft, edit it, send it from Gmail (after you approve), or mark it applied/skipped.
-const { requireUser, requireEnv, readJson, db, quotaOr429, gmailSend } = require('./_lib');
+const { requireUser, requireEnv, readJson, db, quotaOr429, gmailSend, spendDraft, refundDraft, balance } = require('./_lib');
 const { loadUser, draftFor, candidates } = require('./_jobs');
 
 module.exports = async (req, res) => {
@@ -18,10 +18,16 @@ module.exports = async (req, res) => {
       const pool = await db.hgetall('pool');
       const job = candidates(pool, u).find(j => j.key === key) || (pool[key] && { ...pool[key], key });
       if (!job) return res.status(404).json({ error: 'That job is no longer on the board' });
+      if (await db.hget(appsKey, key)) return res.status(409).json({ error: 'Already prepared, see Review' });
       if (!(await quotaOr429(res, user.uid, 'draft'))) return;
-      const app = await draftFor(user.uid, u, job, user.email);
+      const source = await spendDraft(user);
+      if (!source) return res.status(402).json({ error: 'You\'ve used your free applications. Get a pack to keep going.', code: 'no_credits', balance: await balance(user) });
+      let app;
+      try { app = await draftFor(user.uid, u, job, user.email); }
+      catch (e) { await refundDraft(user, source); throw e; }
+      app.paidWith = source;
       await db.hset(appsKey, { [key]: app });
-      return res.status(200).json({ app });
+      return res.status(200).json({ app, balance: await balance(user) });
     }
 
     let app = await db.hget(appsKey, key);

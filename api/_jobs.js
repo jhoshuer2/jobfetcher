@@ -1,5 +1,5 @@
 // Job pool (shared by everyone), per-person filtering, scoring and application drafting.
-const { db, claude, extractJson, MODELS, useQuota, today } = require('./_lib');
+const { db, claude, extractJson, MODELS, useQuota, today, spendDraft, refundDraft } = require('./_lib');
 
 const DAY = 864e5, WINDOW = 10, POOL_TTL = 6 * 3600e3;
 
@@ -245,7 +245,7 @@ async function loadUser(uid) {
   const [profile, settings, pv, matches, apps, radar] = await Promise.all([
     db.get('profile:' + uid), db.get('settings:' + uid), db.get('pv:' + uid), db.hgetall('matches:' + uid), db.hgetall('apps:' + uid), db.get('radar:' + uid)
   ]);
-  return { profile, settings: { threshold: 75, digest: true, ...(settings || {}) }, pv: +pv || 0, matches, apps, radar };
+  return { profile, settings: { threshold: 75, digest: true, autoDraft: 2, ...(settings || {}) }, pv: +pv || 0, matches, apps, radar };
 }
 const DONE = new Set(['sent', 'applied', 'skipped']);
 // Listings this person could see: fresh (≤10 days since last advert), fits their roles, location and pay, not already handled.
@@ -316,11 +316,14 @@ async function processUser(uid, deadline, { draft = true } = {}) {
   const drafted = [];
   if (draft) {
     const strong = cands.filter(j => { const m = u.matches[j.key]; return m && m.pv === u.pv && m.score >= u.settings.threshold && !u.apps[j.key]; })
-      .sort((a, b) => u.matches[b.key].score - u.matches[a.key].score).slice(0, 4);
+      .sort((a, b) => u.matches[b.key].score - u.matches[a.key].score).slice(0, Math.max(0, Math.min(5, +u.settings.autoDraft || 0)));
     for (const j of strong) {
       if (Date.now() > deadline - 15000) break;
       if (!(await useQuota(uid, 'draft'))) break;
-      try { const app = await draftFor(uid, u, j, user.email); u.apps[j.key] = app; await db.hset('apps:' + uid, { [j.key]: app }); drafted.push(app); } catch (e) { /* try next run */ }
+      const source = await spendDraft(user);
+      if (!source) break; // out of free applications and credits
+      try { const app = await draftFor(uid, u, j, user.email); app.paidWith = source; app.auto = true; u.apps[j.key] = app; await db.hset('apps:' + uid, { [j.key]: app }); drafted.push(app); }
+      catch (e) { await refundDraft(user, source); }
     }
   }
   await db.set('lastrun:' + uid, Date.now());

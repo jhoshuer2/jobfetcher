@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Radar Privacy Policy</title>
+<link rel="icon" href="/assets/radar-logo.svg" type="image/svg+xml">
+<style>
+:root{--bg:#F5F3EE;--ink:#17161B;--muted:#6C6976;--line:#E5E1D8;--teal:#13A58A}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0E0E11;--ink:#F2F1ED;--muted:#9D9AA8;--line:#2A2931;--teal:#4FDCC0}}
+:root[data-theme="dark"]{--bg:#0E0E11;--ink:#F2F1ED;--muted:#9D9AA8;--line:#2A2931;--teal:#4FDCC0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+main{max-width:760px;margin:0 auto;padding:32px 16px 64px}
+a{color:var(--teal)} h1{font-size:34px;line-height:1.15;margin:18px 0 4px} h2{font-size:19px;margin:30px 0 6px} .muted{color:var(--muted)}
+.logo{display:inline-flex;align-items:center;gap:10px;font-weight:700;text-decoration:none;color:var(--ink)} li{margin:4px 0}
+</style>
+</head>
+<body><main>
+<a class="logo" href="/"><img src="/assets/radar-logo.svg" width="28" height="28" alt="" style="border-radius:7px">Radar</a>
+<h1>Privacy Policy</h1>
+<p class="muted">Last updated: 7 November 2026</p>
+
+<p>Radar helps you find remote jobs and prepare applications. This policy explains what information Radar collects, how it's used, and the choices you have.</p>
+
+<h2>What we collect</h2>
+<ul>
+  <li><b>Your Google account basics</b>: your name, email address and profile photo, when you sign in with Google.</li>
+  <li><b>What you give Radar</b>: your CV, anything you paste (for example LinkedIn text or portfolio links), your interview with Radar (voice recordings are converted to text and not kept as audio), and the profile built from it.</li>
+  <li><b>Your job activity</b>: the jobs Radar matches you with, the applications it drafts, and which ones you sent, applied to or passed on.</li>
+  <li><b>Payments</b>: the credit packs you buy and their amounts. Card and bank details are handled by Paystack and never reach Radar.</li>
+</ul>
+
+<h2>How we use it</h2>
+<ul>
+  <li>To understand your experience and goals, find jobs that fit you, score them, and draft applications in your voice.</li>
+  <li>To send an email application from your Gmail, <b>only</b> when you have connected Gmail <b>and</b> tapped Approve for that specific application.</li>
+  <li>To send you a short summary email (to yourself, from your own Gmail) when new applications are ready, if you turned this on.</li>
+  <li>To keep track of your free applications and paid credits.</li>
+</ul>
+<p>We don't sell your information, use it for advertising, or share it with employers except in applications you approve.</p>
+
+<h2>Google user data</h2>
+<p>If you connect Gmail, Radar requests only the permission to send email on your behalf (<code>gmail.send</code>). Radar cannot read, search or delete your emails. It uses this permission solely to send applications and summaries you have approved or enabled.</p>
+<p>Radar's use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Google API Services User Data Policy</a>, including the Limited Use requirements. Google user data is not used to train AI models and is not transferred to others except as needed to provide the features described here.</p>
+
+<h2>Services that process your data</h2>
+<ul>
+  <li><b>Google</b>: sign-in and, if you connect it, sending email.</li>
+  <li><b>Anthropic (Claude)</b>: reading your CV, running the interview, matching jobs and drafting applications.</li>
+  <li><b>ElevenLabs</b>: turning Radar's replies into speech and your spoken answers into text, if you use voice.</li>
+  <li><b>Upstash and Vercel</b>: storing your data and running the website.</li>
+  <li><b>Paystack</b>: processing payments.</li>
+</ul>
+<p>Job listings come from public job boards; Radar doesn't send them your personal information.</p>
+
+<h2>Security and storage</h2>
+<p>Your data is stored in an encrypted-in-transit database. Google sign-in tokens are encrypted at rest. Access to the site's API requires your signed-in session.</p>
+
+<h2>Your choices</h2>
+<ul>
+  <li>Edit your profile or upload a new CV at any time.</li>
+  <li>Disconnect Gmail at <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">myaccount.google.com/permissions</a>.</li>
+  <li>Delete your data: <b>Settings → Delete everything</b> removes your profile, interview, CV, matches and applications. A record of free applications used and unused paid credits is kept so your balance stays correct if you return.</li>
+</ul>
+
+<h2>Contact</h2>
+<p>Questions or requests: <span id="contact">contact the person who shared Radar with you</span>.</p>
+<p class="muted"><a href="/terms.html">Terms of Use</a> · <a href="/">Back to Radar</a></p>
+</main>
+<script>
+fetch('/api/health').then(r => r.json()).then(h => { if(h.supportEmail){ const a = document.createElement('a'); a.href = 'mailto:' + h.supportEmail; a.textContent = h.supportEmail; const c = document.getElementById('contact'); c.textContent = ''; c.appendChild(a) } }).catch(() => {});
+try{ const t = JSON.parse(localStorage.getItem('jobradar.theme')); if(t) document.documentElement.dataset.theme = t }catch(e){}
+</script>
+</body></html>

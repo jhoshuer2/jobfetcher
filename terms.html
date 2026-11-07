@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Radar Terms of Use</title>
+<link rel="icon" href="/assets/radar-logo.svg" type="image/svg+xml">
+<style>
+:root{--bg:#F5F3EE;--ink:#17161B;--muted:#6C6976;--line:#E5E1D8;--teal:#13A58A}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0E0E11;--ink:#F2F1ED;--muted:#9D9AA8;--line:#2A2931;--teal:#4FDCC0}}
+:root[data-theme="dark"]{--bg:#0E0E11;--ink:#F2F1ED;--muted:#9D9AA8;--line:#2A2931;--teal:#4FDCC0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+main{max-width:760px;margin:0 auto;padding:32px 16px 64px}
+a{color:var(--teal)} h1{font-size:34px;line-height:1.15;margin:18px 0 4px} h2{font-size:19px;margin:30px 0 6px} .muted{color:var(--muted)}
+.logo{display:inline-flex;align-items:center;gap:10px;font-weight:700;text-decoration:none;color:var(--ink)} li{margin:4px 0}
+</style>
+</head>
+<body><main>
+<a class="logo" href="/"><img src="/assets/radar-logo.svg" width="28" height="28" alt="" style="border-radius:7px">Radar</a>
+<h1>Terms of Use</h1>
+<p class="muted">Last updated: 7 November 2026</p>
+
+<h2>1. What Radar does</h2>
+<p>Radar interviews you, finds remote job listings from public job boards that appear to fit you, and drafts applications for you to review. Radar is a tool to help your job search; it doesn't guarantee interviews, offers or employment, and it isn't affiliated with the employers or job boards it shows.</p>
+
+<h2>2. Your account</h2>
+<p>You sign in with Google and are responsible for activity on your account. Give accurate information: Radar writes applications from what you tell it, and you're responsible for everything you approve and send.</p>
+
+<h2>3. Your approval</h2>
+<p>Radar never sends an application without your approval. Before approving, read each draft and correct anything inaccurate. For jobs that use an application form, you submit the application yourself.</p>
+
+<h2>4. Free applications and credits</h2>
+<ul>
+  <li>Each account gets 2 free applications. After that, each application Radar prepares (a tailored email or form pack) uses 1 credit. The interview, matching and daily search are free.</li>
+  <li>Automatic morning drafting only uses credits if you've turned it on in Settings.</li>
+  <li>If Radar fails to prepare an application, the credit is returned automatically.</li>
+  <li>Credits don't expire and can't be exchanged for cash. Purchases are non-refundable once credits have been used; for a problem with an unused purchase, contact us.</li>
+  <li>Prices are shown before you pay. Payments are processed by Paystack.</li>
+</ul>
+
+<h2>5. Acceptable use</h2>
+<p>Don't use Radar to send spam or mass unsolicited email, impersonate others, submit false information, scrape or overload the service, or break the rules of job boards or employers. We may limit or close accounts that do.</p>
+
+<h2>6. Third-party services</h2>
+<p>Radar relies on Google, Anthropic, ElevenLabs, Paystack, Upstash, Vercel and public job boards. Listings may be inaccurate, out of date or removed by their owners; always check the original posting.</p>
+
+<h2>7. Availability and changes</h2>
+<p>Radar is provided "as is". We may change features, prices or these terms; if we change prices, credits you've already bought keep their value.</p>
+
+<h2>8. Liability</h2>
+<p>To the extent permitted by law, Radar isn't liable for indirect losses or for outcomes of job applications. Our total liability is limited to the amount you paid in the 3 months before the claim.</p>
+
+<h2>9. Governing law</h2>
+<p>These terms are governed by the laws of the Federal Republic of Nigeria.</p>
+
+<h2>Contact</h2>
+<p><span id="contact">Contact the person who shared Radar with you.</span></p>
+<p class="muted"><a href="/privacy.html">Privacy Policy</a> · <a href="/">Back to Radar</a></p>
+</main>
+<script>
+fetch('/api/health').then(r => r.json()).then(h => { if(h.supportEmail){ const c = document.getElementById('contact'); c.textContent = 'Email '; const a = document.createElement('a'); a.href = 'mailto:' + h.supportEmail; a.textContent = h.supportEmail; c.appendChild(a) } }).catch(() => {});
+try{ const t = JSON.parse(localStorage.getItem('jobradar.theme')); if(t) document.documentElement.dataset.theme = t }catch(e){}
+</script>
+</body></html>
