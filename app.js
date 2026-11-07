@@ -45,7 +45,9 @@ function route(){
   let v = (location.hash || '').slice(1);
   if(['not-invited','signin-failed','signin-cancelled'].includes(v)){ showLanding(v); return }
   const signed = !!JR.me;
-  $('nav').hidden = !signed; $('me').hidden = !signed; $('creditPill').hidden = !signed;
+  // Until the first interview is done, Radar is the only thing on screen: no menu, no credits.
+  const focus = signed && !JR.profile();
+  $('nav').hidden = !signed || focus; $('me').hidden = !signed; $('creditPill').hidden = !signed || focus;
   if(signed){
     let m;
     if((m = v.match(/^credits-ok-(\d+)$/))){ refreshBalance(); toast(`Payment received: ${m[1]} credits added.`); history.replaceState(null, '', '#credits'); v = 'credits' }
