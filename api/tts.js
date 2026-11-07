@@ -1,9 +1,11 @@
 // Text → speech with ElevenLabs. Body: { text }  →  audio/mpeg
-const { checkAuth, requireEnv, readJson } = require('./_lib');
+const { requireUser, requireEnv, readJson, quotaOr429 } = require('./_lib');
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
-  if (!checkAuth(req, res) || !requireEnv(res, 'ELEVENLABS_API_KEY')) return;
+  if (!requireEnv(res, 'ELEVENLABS_API_KEY')) return;
+  const user = await requireUser(req, res); if (!user) return;
+  if (!(await quotaOr429(res, user.uid, 'tts'))) return;
 
   let body;
   try { body = await readJson(req); } catch { return res.status(400).json({ error: 'Bad JSON' }); }

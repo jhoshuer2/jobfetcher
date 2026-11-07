@@ -2,17 +2,19 @@
 //   brief     – read a CV (PDF or text) + pasted notes, return {name, brief}
 //   interview – next interviewer turn, given the brief and the conversation so far
 //   profile   – turn the brief + conversation into a structured profile JSON
-const { checkAuth, requireEnv, readJson, claude, extractJson, MODELS } = require('./_lib');
+const { requireUser, requireEnv, readJson, claude, extractJson, MODELS, quotaOr429, db } = require('./_lib');
 
 const PROFILE_SHAPE = `{
   "name": "", "headline": "one line, e.g. 'Product designer & AI builder'",
   "summary": "3-4 sentences in second person about who they are and what they're great at",
-  "roles": ["job titles they'd be a strong fit for"],
+  "roles": ["2-5 job titles they want AND fit, e.g. 'Product Designer'"],
   "skills": [""], "tools": [""],
   "seniority": "junior | mid | senior | lead",
   "years": 0,
   "workTypes": ["full-time","contract","freelance","fractional","advisory","expert calls"],
   "minMonthlyUSD": 1000,
+  "country": "country they live in", "timezone": "",
+  "email": "contact email if stated", "phone": "", "portfolio": ["links they gave"],
   "hours": "availability / time-zone notes",
   "strengths": ["evidence-backed strengths, each with the proof"],
   "interests": ["domains/problems they want to work on"],
@@ -20,7 +22,7 @@ const PROFILE_SHAPE = `{
   "keywords": ["search words to find matching jobs"]
 }`;
 
-const INTERVIEWER = (brief, name) => `You are Radar, a warm, sharp career interviewer (in the spirit of an expert-network voice agent). You are speaking out loud with ${name || 'the candidate'}, a professional based in Nigeria who wants remote work paying at least $1,000/month, mainly UI/UX & product design and Claude Code / AI-assisted building.
+const INTERVIEWER = (brief, name) => `You are Radar, a warm, sharp career interviewer (in the spirit of an expert-network voice agent). You are speaking out loud with ${name || 'the candidate'}, a professional looking for remote work. Don't assume their field, country or pay: learn them.
 
 What you already know from their CV and notes:
 """
@@ -28,7 +30,7 @@ ${brief || '(nothing yet — learn it from the conversation)'}
 """
 
 Your job: in about 8–12 questions, understand them deeply enough to match them to full-time roles, contracts, fractional work, advisory, expert calls and research projects.
-Cover, in a natural order: the story behind their best work; one or two projects in depth (their exact role, decisions, trade-offs, results); design + building skills and tools (Figma, design systems, Claude Code, front-end); seniority and team experience; the kinds of work they're open to; minimum monthly pay; hours/time-zone constraints; what they want next; dealbreakers.
+Cover, in a natural order: the story behind their best work; one or two projects in depth (their exact role, decisions, trade-offs, results); their core skills and tools; seniority and team experience; the exact roles they want next; the kinds of work they're open to (full-time, contract, fractional, advisory); minimum monthly pay in USD; which country they live in and their time zone; dealbreakers.
 
 Style rules — this is SPOKEN aloud:
 - Reply in at most 2 short sentences: one brief, specific reflection on what they just said (no generic praise), then ONE question.
@@ -42,7 +44,9 @@ Style rules — this is SPOKEN aloud:
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
-  if (!checkAuth(req, res) || !requireEnv(res, 'ANTHROPIC_API_KEY')) return;
+  if (!requireEnv(res, 'ANTHROPIC_API_KEY')) return;
+  const user = await requireUser(req, res); if (!user) return;
+  if (!(await quotaOr429(res, user.uid, 'chat'))) return;
 
   let body;
   try { body = await readJson(req); } catch { return res.status(400).json({ error: 'Bad JSON' }); }
@@ -52,6 +56,11 @@ module.exports = async (req, res) => {
   try {
     if (mode === 'brief') {
       const content = [];
+      if (body.useStoredCv) {
+        const cv = await db.get('cv:' + user.uid);
+        if (cv && cv.mime === 'application/pdf') body.cvPdf = cv.b64;
+        else if (cv) body.cvText = Buffer.from(cv.b64, 'base64').toString('utf8');
+      }
       if (body.cvPdf) content.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: String(body.cvPdf) } });
       const notes = clip(body.notes, 20000);
       const cvText = clip(body.cvText, 40000);

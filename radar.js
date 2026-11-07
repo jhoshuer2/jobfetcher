@@ -1,19 +1,26 @@
 /* Meet Radar — CV intake, voice/text interview (Claude + ElevenLabs), and the editable profile. */
 (function(){
-const {api, ls, esc, HOSTED} = window.JR;
-const KEY = 'jobradar.radar';
+const {api, esc} = window.JR;
 const $ = id => document.getElementById(id);
-let S = ls.get(KEY, null) || {name:'', brief:'', messages:[], done:false, voice:true};
-const persist = () => ls.set(KEY, S);
+const blank = () => ({name:'', brief:'', messages:[], done:false, voice:true});
+let S = blank();
+const persist = () => JR.saveRadar(S);
+const firstName = () => (S.name || (JR.me && JR.me.user.name) || '').split(' ')[0] || 'Hi';
 
-/* ---------- step switching ---------- */
 function step(name){
-  ['intake','call','profile'].forEach(x => $('r-' + x).hidden = x !== name);
+  ['landing','intake','call','profile'].forEach(x => $('r-' + x).hidden = x !== name);
 }
+let loaded = false;
 function show(){
+  if(!JR.me) return;
+  if(!loaded){ S = Object.assign(blank(), JR.me.radar || {}); loaded = true }
   $('intakeMsg').innerHTML = '';
+  document.querySelectorAll('.hiName').forEach(el => el.textContent = firstName());
   if(JR.profile() && S.done) { renderProfile(JR.profile()); step('profile'); return }
   if(S.brief){ enterCall(false); return }
+  const cv = JR.me.cv;
+  $('cvName').textContent = cvFile ? cvFile.name : cv ? 'Using your saved CV: ' + cv.name : 'Choose a file';
+  $('cvHint').textContent = cv ? 'Choose a file to replace it.' : 'Word file? Save it as PDF first.';
   step('intake');
 }
 
@@ -24,29 +31,24 @@ $('cv').addEventListener('change', e => {
   $('cvName').textContent = cvFile ? cvFile.name : 'Choose a file';
 });
 $('mode').value = S.voice === false ? 'text' : 'voice';
-const fileB64 = f => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.onerror = no; r.readAsDataURL(f) });
-const fileText = f => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result)); r.onerror = no; r.readAsText(f) });
 function err(el, m){ $(el).innerHTML = m ? `<p class="msg err">${esc(m)}</p>` : '' }
 
 $('startBtn').addEventListener('click', async () => {
   err('intakeMsg', '');
   const notes = $('notes').value.trim();
-  if(!cvFile && notes.length < 40) return err('intakeMsg', 'Add your CV or paste a bit about your work first.');
+  const saved = JR.me.cv;
+  if(!cvFile && !saved && notes.length < 40) return err('intakeMsg', 'Add your CV or paste a bit about your work first.');
   if(cvFile && cvFile.size > 3e6) return err('intakeMsg', 'That file is over 3 MB. Try a smaller PDF.');
-  if(!HOSTED) return err('intakeMsg', 'Open the live Vercel site to talk to Radar.');
   S.voice = $('mode').value === 'voice';
   const btn = $('startBtn'); btn.disabled = true; btn.classList.add('loading');
   try{
     unlockAudio();
-    const body = {mode:'brief', notes};
-    if(cvFile){ if(/pdf$/i.test(cvFile.type) || /\.pdf$/i.test(cvFile.name)) body.cvPdf = await fileB64(cvFile); else body.cvText = await fileText(cvFile) }
-    const r = await api('chat', body, {timeout:90000});
-    Object.assign(S, {name:r.name || '', brief:r.brief || notes, messages:[], done:false}); persist();
+    if(cvFile){ await JR.saveCv(cvFile); cvFile = null }
+    const r = await api('chat', {mode:'brief', notes, useStoredCv: !!JR.me.cv}, {timeout:90000});
+    Object.assign(S, {name:r.name || firstName(), brief:r.brief || notes, messages:[], done:false}); persist();
     enterCall(true);
-  }catch(e){
-    err('intakeMsg', e.message);
-    if(e.code === 'bad_passcode' || e.code === 'not_configured') setTimeout(() => location.hash = '#setup', 1800);
-  }finally{ btn.disabled = false; btn.classList.remove('loading') }
+  }catch(e){ err('intakeMsg', e.message) }
+  finally{ btn.disabled = false; btn.classList.remove('loading') }
 });
 
 /* ---------- call ---------- */
@@ -62,7 +64,7 @@ function setStatus(t){ $('status').textContent = t }
 function qCount(){ const n = S.messages.filter(m => m.role === 'assistant').length; $('qCount').textContent = n ? `Question ${n}` : '' }
 
 function enterCall(fresh){
-  $('callName').textContent = S.name || 'Hi';
+  document.querySelectorAll('.hiName').forEach(el => el.textContent = firstName());
   redrawTranscript(); qCount(); step('call'); startOrb();
   $('voiceNote').textContent = S.voice ? 'Voice on · ElevenLabs' : 'Typing mode';
   $('micBtn').hidden = !S.voice;
@@ -101,7 +103,7 @@ $('micBtn').addEventListener('click', () => {
 $('endBtn').addEventListener('click', () => { stopListening(false); stopSpeaking(); finish() });
 $('restartBtn').addEventListener('click', () => {
   if(!confirm('Start over? This clears the current conversation.')) return;
-  stopListening(false); stopSpeaking(); S = {name:'', brief:'', messages:[], done:false, voice:S.voice}; persist(); step('intake');
+  stopListening(false); stopSpeaking(); S = Object.assign(blank(), {voice:S.voice}); persist(); show();
 });
 
 /* ---------- audio: shared context + level meter for the orb ---------- */
@@ -208,14 +210,15 @@ function stopListening(send){
 }
 
 /* ---------- orb ---------- */
-let orbOn = false;
-function startOrb(){
-  if(orbOn) return; orbOn = true;
-  const c = $('orb'), g = c.getContext('2d'), W = c.width, H = c.height;
+const orbsOn = {};
+function startOrb(id = 'orb'){
+  if(orbsOn[id]) return; orbsOn[id] = true;
+  const c = $(id), g = c.getContext('2d'), W = c.width, H = c.height;
+  const host = c.closest('section');
   const glow = getComputedStyle(document.documentElement).getPropertyValue('--glow').trim() || '#33E0BF';
   function frame(t){
-    if(!$('r-call').hidden){
-      const target = (phase === 'speak' || phase === 'listen') ? Math.min(1, readLevel() * 6) : phase === 'think' ? 0.18 + 0.08*Math.sin(t/200) : 0.06;
+    if(!host.hidden && !document.hidden){
+      const target = id !== 'orb' ? 0.12 + 0.06*Math.sin(t/600) : (phase === 'speak' || phase === 'listen') ? Math.min(1, readLevel() * 6) : phase === 'think' ? 0.18 + 0.08*Math.sin(t/200) : 0.06;
       level += (target - level) * 0.15;
       g.clearRect(0, 0, W, H);
       const R = W * 0.27;
@@ -248,8 +251,8 @@ async function finish(){
   try{
     const {profile} = await api('chat', {mode:'profile', brief:S.brief, messages:S.messages}, {timeout:90000});
     if(!profile.name && S.name) profile.name = S.name;
+    await JR.setProfile(profile);
     S.done = true; persist();
-    JR.setProfile(profile);
     renderProfile(profile); step('profile');
   }catch(e){ setStatus('Couldn\'t build the profile: ' + e.message) }
   finally{ $('endBtn').disabled = false; phase = 'idle' }
@@ -258,6 +261,7 @@ const FIELDS = [
   ['headline','Headline','text'], ['summary','Summary','area'],
   ['roles','Roles you fit','list'], ['skills','Skills','list'], ['tools','Tools','list'],
   ['seniority','Seniority','select:junior,mid,senior,lead'], ['years','Years of experience','number'],
+  ['country','Country you live in','text'], ['portfolio','Portfolio / links','list'],
   ['workTypes','Open to','list'], ['minMonthlyUSD','Minimum pay (USD / month)','number'], ['hours','Hours & time zone','text'],
   ['strengths','Strengths (with proof)','list'], ['interests','Wants to work on','list'], ['dealbreakers','Dealbreakers','list'], ['keywords','Search keywords','list']
 ];
@@ -284,21 +288,27 @@ function readProfile(){
   });
   return p;
 }
-$('saveProfile').addEventListener('click', e => {
+$('saveProfile').addEventListener('click', async e => {
   e.preventDefault();
-  JR.setProfile(readProfile());
-  location.hash = '#board';
-  const sort = $('sort'); sort.value = 'match'; sort.dispatchEvent(new Event('change'));
-  if(!JR.pass()) { location.hash = '#setup'; return }
-  JR.scoreMatches();
+  const b = $('saveProfile'); b.disabled = true;
+  try{
+    const p = readProfile();
+    if(!p.roles || !p.roles.length){ $('profileMsg').innerHTML = '<p class="msg err">Add at least one role so Radar knows what to search for.</p>'; return }
+    await JR.setProfile(p); S.done = true; persist();
+    location.hash = '#matches';
+  }catch(err){ $('profileMsg').innerHTML = `<p class="msg err">${esc(err.message)}</p>` }
+  finally{ b.disabled = false }
 });
-$('redo').addEventListener('click', e => {
-  e.preventDefault();
+function redo(){
   if(!confirm('Redo the interview? Your current profile stays until the new one is built.')) return;
-  S = {name:S.name, brief:S.brief, messages:[], done:false, voice:S.voice}; persist();
+  S = Object.assign(blank(), {name:S.name, brief:S.brief, voice:S.voice}); persist();
+  if(location.hash !== '#radar') location.hash = '#radar';
   unlockAudio(); enterCall(true);
-});
+}
+$('redo').addEventListener('click', e => { e.preventDefault(); redo() });
+function editProfile(){ S.done = true; if(JR.profile()){ renderProfile(JR.profile()); step('profile') } }
+function landingOrb(){ startOrb('orbLanding') }
 
-window.Radar = {show};
-if(!$('view-radar').hidden) show();
+window.Radar = {show, redo, editProfile, landingOrb};
+if(JR.route) JR.route();
 })();

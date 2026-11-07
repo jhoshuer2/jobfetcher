@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Job Radar</title>
-<meta name="description" content="Remote UI/UX and Claude Code jobs open to Nigeria, matched to you by a short AI interview.">
+<title>Radar</title>
+<meta name="description" content="A 10-minute conversation, then Radar finds remote roles that fit you and drafts tailored applications.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <style>
@@ -21,8 +21,7 @@
     --bg:#0E0E11; --surface:#17171C; --ink:#F2F1ED; --muted:#9D9AA8; --line:#2A2931; --chip:#212027;
     --accent:#8F8DFF; --accent-soft:#25244A; --green:#4FD6A2; --green-soft:#11302A;
     --amber:#F1B54C; --amber-soft:#33280F; --rose:#FF8D6E; --rose-soft:#3A1E17; --violet:#C49BFF; --violet-soft:#2C1F40;
-    --teal:#4FDCC0; --teal-soft:#10302A;
-    --call:#0B1312; --call-2:#141D1B;
+    --teal:#4FDCC0; --teal-soft:#10302A; --call:#0B1312; --call-2:#141D1B;
     --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 28px -14px rgba(0,0,0,.6);
   }
 }
@@ -30,8 +29,7 @@
   --bg:#0E0E11; --surface:#17171C; --ink:#F2F1ED; --muted:#9D9AA8; --line:#2A2931; --chip:#212027;
   --accent:#8F8DFF; --accent-soft:#25244A; --green:#4FD6A2; --green-soft:#11302A;
   --amber:#F1B54C; --amber-soft:#33280F; --rose:#FF8D6E; --rose-soft:#3A1E17; --violet:#C49BFF; --violet-soft:#2C1F40;
-  --teal:#4FDCC0; --teal-soft:#10302A;
-  --call:#0B1312; --call-2:#141D1B;
+  --teal:#4FDCC0; --teal-soft:#10302A; --call:#0B1312; --call-2:#141D1B;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 28px -14px rgba(0,0,0,.6);
 }
 *{box-sizing:border-box}
@@ -43,93 +41,51 @@ a{color:inherit}
 button{font:inherit;color:inherit;cursor:pointer}
 input,textarea,select{font:inherit;color:inherit}
 
-/* top bar */
-.topbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:26px}
+.topbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:26px}
 .logo{display:flex;align-items:center;gap:10px;font:700 20px/1 "Space Grotesk",sans-serif;letter-spacing:-.02em;text-decoration:none;margin-right:auto}
-.pulse{width:10px;height:10px;border-radius:50%;background:var(--green);animation:p 2.2s infinite}
-@keyframes p{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--green) 60%,transparent)}70%{box-shadow:0 0 0 10px transparent}100%{box-shadow:0 0 0 0 transparent}}
-.nav{display:inline-flex;background:var(--chip);padding:4px;border-radius:12px;gap:2px}
-.nav a{padding:7px 14px;border-radius:9px;font-weight:600;font-size:14px;color:var(--muted);text-decoration:none}
+.pulse{width:10px;height:10px;border-radius:50%;background:var(--glow);box-shadow:0 0 10px var(--glow)}
+.nav{display:inline-flex;background:var(--chip);padding:4px;border-radius:12px;gap:2px;flex-wrap:wrap}
+.nav a{padding:7px 12px;border-radius:9px;font-weight:600;font-size:14px;color:var(--muted);text-decoration:none;display:inline-flex;gap:6px;align-items:center}
 .nav a[aria-current="page"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
-.btn{border:1px solid var(--line);background:var(--surface);padding:9px 14px;border-radius:10px;font-weight:600;font-size:14px;display:inline-flex;align-items:center;gap:8px;box-shadow:var(--shadow);text-decoration:none}
+.badge{min-width:18px;height:18px;border-radius:99px;background:var(--rose);color:#fff;font-size:11px;display:inline-grid;place-items:center;padding:0 5px}
+.avatar{width:36px;height:36px;border-radius:50%;object-fit:cover;background:var(--chip);border:1px solid var(--line)}
+.btn{border:1px solid var(--line);background:var(--surface);padding:9px 14px;border-radius:10px;font-weight:600;font-size:14px;display:inline-flex;align-items:center;gap:8px;box-shadow:var(--shadow);text-decoration:none;white-space:nowrap}
 .btn:hover{border-color:var(--muted)}
 .btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .btn.teal{background:var(--teal);color:#fff;border-color:var(--teal)}
+.btn.ghost{background:transparent;box-shadow:none}
+.btn.danger{color:var(--rose)}
 .btn:disabled{opacity:.55;cursor:not-allowed}
 .btn.sm{padding:6px 11px;font-size:13px}
-.icon-btn{width:40px;height:40px;justify-content:center;padding:0}
+.icon-btn{width:38px;height:38px;justify-content:center;padding:0}
 .spin{width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:s .7s linear infinite;display:none}
 .loading .spin{display:inline-block}
 @keyframes s{to{transform:rotate(360deg)}}
-
-/* board header */
-.hero{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end;justify-content:space-between;margin-bottom:20px}
-.hero h1{font:700 clamp(28px,4.6vw,42px)/1.05 "Space Grotesk",Inter,sans-serif;letter-spacing:-.03em;margin:0 0 8px}
-.hero p{margin:0;color:var(--muted);max-width:640px}
-.crit{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
-.crit span{font-size:12.5px;font-weight:500;padding:4px 10px;border-radius:99px;background:var(--surface);border:1px solid var(--line)}
-.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:18px}
-.stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:var(--shadow)}
-.stat b{display:block;font:700 28px/1.1 "Space Grotesk",sans-serif;letter-spacing:-.02em}
-.stat span{color:var(--muted);font-size:13px}
-.banner{display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--call);color:var(--call-ink);border-radius:16px;padding:16px 18px;margin-bottom:18px}
-.banner b{font:600 17px/1.3 "Space Grotesk",sans-serif}
-.banner p{margin:2px 0 0;color:var(--call-muted);font-size:13.5px}
-.banner .btn{background:var(--glow);color:#06241E;border-color:transparent}
-.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px}
-.tabs{display:inline-flex;background:var(--chip);padding:4px;border-radius:12px;gap:2px;flex-wrap:wrap}
-.tabs button{border:0;background:transparent;padding:7px 13px;border-radius:9px;font-weight:600;font-size:14px;color:var(--muted)}
-.tabs button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
-.search{flex:1 1 200px;min-width:0;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 12px}
-select.sort{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 10px;font-weight:600;font-size:14px}
-.toggles{display:flex;flex-wrap:wrap;gap:6px}
-.tg{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:6px 12px;font-size:13px;font-weight:500;color:var(--muted)}
-.tg[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent);border-color:transparent}
-.sources{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--muted);margin:8px 0 20px}
-.sources i{font-style:normal;font-weight:600}
-.ok{color:var(--green)} .bad{color:var(--rose)}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:10px;box-shadow:var(--shadow)}
-.card.archived{opacity:.55}
 .row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .pill{font-size:12px;font-weight:600;padding:3px 9px;border-radius:99px;background:var(--chip);color:var(--muted);white-space:nowrap}
-.pill.design{background:var(--accent-soft);color:var(--accent)}
-.pill.claude{background:var(--violet-soft);color:var(--violet)}
 .pill.pay{background:var(--green-soft);color:var(--green)}
 .pill.nopay{background:var(--amber-soft);color:var(--amber)}
 .pill.re{background:var(--rose-soft);color:var(--rose)}
 .pill.new{background:var(--ink);color:var(--bg)}
-.age{margin-left:auto;font-size:12.5px;color:var(--muted)}
-.card h3{font:600 19px/1.25 "Space Grotesk",sans-serif;letter-spacing:-.01em;margin:2px 0 0}
-.co{color:var(--muted);font-weight:500;font-size:14px}
-.meta{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font-size:13.5px;margin:0}
-.meta dt{color:var(--muted)} .meta dd{margin:0;min-width:0;overflow-wrap:anywhere}
-.note{font-size:13.5px;color:var(--muted);margin:0}
-.match{display:flex;gap:12px;align-items:flex-start;background:var(--teal-soft);border-radius:12px;padding:10px 12px}
-.score{flex:none;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font:700 15px/1 "Space Grotesk",sans-serif;color:var(--teal);background:conic-gradient(var(--teal) calc(var(--v)*1%),color-mix(in srgb,var(--teal) 18%,transparent) 0);position:relative}
-.score::before{content:"";position:absolute;inset:4px;border-radius:50%;background:var(--teal-soft)}
-.score span{position:relative}
-.match p{margin:0;font-size:13px;line-height:1.45}
-.match .gap{color:var(--muted);margin-top:3px}
-.fresh{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
-.bar{flex:1;height:5px;border-radius:99px;background:var(--chip);overflow:hidden}
-.bar i{display:block;height:100%;background:var(--green);border-radius:99px}
-.bar i.warn{background:var(--amber)} .bar i.end{background:var(--rose)}
-.actions{display:flex;gap:6px;margin-top:auto;padding-top:4px}
-.actions a{flex:1;text-align:center;text-decoration:none;background:var(--ink);color:var(--bg);padding:9px 12px;border-radius:10px;font-weight:600;font-size:14px}
-.ic{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 11px;font-size:13px;font-weight:600;color:var(--muted)}
-.ic[aria-pressed="true"]{color:var(--green);border-color:var(--green);background:var(--green-soft)}
-.section-title{font:600 13px/1 Inter,sans-serif;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:30px 0 12px}
-.empty{padding:40px 20px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:16px}
-footer{margin-top:40px;font-size:12.5px;color:var(--muted);line-height:1.6}
-footer b{color:var(--ink)}
+.pill.can{background:var(--teal-soft);color:var(--teal)}
+.pill.you{background:var(--violet-soft);color:var(--violet)}
+.msg{font-size:13.5px;border-radius:10px;padding:10px 12px;margin:0 0 14px}
+.msg.err{background:var(--rose-soft);color:var(--rose)}
+.msg.info{background:var(--teal-soft);color:var(--teal)}
+.msg.warn{background:var(--amber-soft);color:var(--amber)}
+.muted{color:var(--muted)}
+code{font:13px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--chip);padding:1px 6px;border-radius:6px}
 
-/* Meet Radar */
-.radar{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:40px;align-items:center;min-height:70vh}
-.radar-copy h1{font:400 clamp(44px,7vw,84px)/.98 "Instrument Serif",Georgia,serif;letter-spacing:-.02em;margin:0 0 20px}
+/* Radar (landing, intake, call) */
+.radar{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:40px;align-items:center;min-height:72vh}
+.radar-copy h1{font:400 clamp(46px,7vw,88px)/.98 "Instrument Serif",Georgia,serif;letter-spacing:-.02em;margin:0 0 20px}
 .radar-copy h1 em{color:var(--teal)}
-.radar-copy p{color:var(--muted);font-size:16px;max-width:440px;margin:0 0 14px}
-.radar-copy ul{margin:0;padding:0 0 0 18px;color:var(--muted);font-size:14px;max-width:440px}
+.radar-copy p{color:var(--muted);font-size:16px;max-width:460px;margin:0 0 14px}
+.steps{list-style:none;padding:0;margin:18px 0 22px;display:grid;gap:10px;max-width:460px}
+.steps li{display:flex;gap:12px;align-items:flex-start;font-size:14.5px}
+.steps b{flex:none;width:24px;height:24px;border-radius:50%;background:var(--teal-soft);color:var(--teal);display:grid;place-items:center;font-size:12px}
+.gbtn{display:inline-flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 18px;font-weight:600;text-decoration:none;box-shadow:var(--shadow)}
+.fine{font-size:12.5px;color:var(--muted);margin-top:10px;max-width:460px}
 .call{background:var(--call);color:var(--call-ink);border-radius:22px;padding:18px;box-shadow:0 30px 60px -30px rgba(0,0,0,.5);display:flex;flex-direction:column;gap:14px;min-height:520px}
 .call-top{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;color:var(--call-muted)}
 .call-top .live{display:inline-flex;align-items:center;gap:6px}
@@ -157,100 +113,126 @@ canvas.orb{width:240px;height:240px}
 .field .hint{font-size:12.5px;color:var(--muted);font-weight:400}
 .field input,.field textarea,.field select{border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:10px 12px;width:100%}
 .field textarea{min-height:96px;resize:vertical}
-.drop{border:1.5px dashed var(--line);border-radius:12px;padding:16px;display:flex;gap:12px;align-items:center;background:var(--bg)}
+.drop{border:1.5px dashed var(--line);border-radius:12px;padding:16px;display:flex;gap:12px;align-items:center;background:var(--bg);cursor:pointer}
 .drop b{display:block;font-size:14px}
 .drop span{font-size:12.5px;color:var(--muted)}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.msg{font-size:13.5px;border-radius:10px;padding:10px 12px;margin:0 0 14px}
-.msg.err{background:var(--rose-soft);color:var(--rose)}
-.msg.info{background:var(--teal-soft);color:var(--teal)}
-.profile-wrap{max-width:860px;margin:0 auto}
-.setup{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
-.checks{display:grid;gap:8px;font-size:14px;margin:0 0 6px;padding:0;list-style:none}
-.checks li{display:flex;gap:8px;align-items:center}
-code{font:13px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--chip);padding:1px 6px;border-radius:6px}
-.boardlist{font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:8px}
+.profile-wrap,.narrow{max-width:860px;margin:0 auto}
 
-@media (max-width:900px){.radar{grid-template-columns:1fr;gap:24px;min-height:0}.radar-copy h1{font-size:48px}}
-@media (max-width:720px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.grid{grid-template-columns:1fr}.two{grid-template-columns:1fr}.end{padding:0 10px}}
+/* Matches */
+.head{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between;margin-bottom:18px}
+.head h1{font:700 clamp(26px,4.2vw,38px)/1.08 "Space Grotesk",sans-serif;letter-spacing:-.03em;margin:0 0 6px}
+.head p{margin:0;color:var(--muted);max-width:620px}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:var(--shadow);text-decoration:none}
+.stat b{display:block;font:700 28px/1.1 "Space Grotesk",sans-serif;letter-spacing:-.02em}
+.stat span{color:var(--muted);font-size:13px}
+.syncbar{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;font-size:12.5px;color:var(--muted);margin:0 0 18px}
+.syncbar i{font-style:normal;font-weight:600}
+.ok{color:var(--green)} .bad{color:var(--rose)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:10px;box-shadow:var(--shadow)}
+.age{margin-left:auto;font-size:12.5px;color:var(--muted)}
+.card h3{font:600 19px/1.25 "Space Grotesk",sans-serif;letter-spacing:-.01em;margin:2px 0 0}
+.co{color:var(--muted);font-weight:500;font-size:14px}
+.meta{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font-size:13.5px;margin:0}
+.meta dt{color:var(--muted)} .meta dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.match{display:flex;gap:12px;align-items:flex-start;background:var(--teal-soft);border-radius:12px;padding:10px 12px}
+.score{flex:none;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font:700 15px/1 "Space Grotesk",sans-serif;color:var(--teal);background:conic-gradient(var(--teal) calc(var(--v)*1%),color-mix(in srgb,var(--teal) 18%,transparent) 0);position:relative}
+.score::before{content:"";position:absolute;inset:4px;border-radius:50%;background:var(--teal-soft)}
+.score span{position:relative}
+.match p{margin:0;font-size:13px;line-height:1.45}
+.match .gap{color:var(--muted);margin-top:3px}
+.fresh{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.bar{flex:1;height:5px;border-radius:99px;background:var(--chip);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--green);border-radius:99px}
+.bar i.warn{background:var(--amber)}
+.actions{display:flex;gap:6px;margin-top:auto;padding-top:4px;flex-wrap:wrap}
+.actions .btn{flex:1;justify-content:center}
+.empty{padding:40px 20px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:16px}
+.thresh{display:flex;align-items:center;gap:10px;font-size:13.5px;font-weight:600}
+.thresh input{accent-color:var(--teal)}
+
+/* Review + Applied */
+.app{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:var(--shadow);margin-bottom:16px}
+.app-head{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}
+.app-head h3{font:600 20px/1.25 "Space Grotesk",sans-serif;margin:0}
+.needs{background:var(--amber-soft);color:var(--amber);border-radius:12px;padding:10px 14px;font-size:13.5px;margin-bottom:14px}
+.needs ul{margin:4px 0 0;padding-left:18px}
+.qa{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;background:var(--bg)}
+.qa b{display:block;font-size:13.5px;margin-bottom:4px}
+.qa p{margin:0;font-size:14px;white-space:pre-wrap}
+.copy{float:right;border:0;background:none;color:var(--teal);font-weight:600;font-size:12.5px}
+.list{display:flex;flex-direction:column;gap:10px}
+.li{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.li h4{margin:0;font:600 16px/1.3 "Space Grotesk",sans-serif}
+.li details{width:100%;font-size:13.5px}
+.li details pre{white-space:pre-wrap;font:13.5px/1.5 Inter,sans-serif;background:var(--bg);border-radius:10px;padding:10px 12px;margin:8px 0 0}
+.checks{display:grid;gap:8px;font-size:14px;margin:0 0 6px;padding:0;list-style:none}
+.setup{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;font-weight:600;box-shadow:var(--shadow);z-index:9;max-width:calc(100% - 32px)}
+
+@media (max-width:900px){.radar{grid-template-columns:1fr;gap:24px;min-height:0}}
+@media (max-width:720px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.grid{grid-template-columns:1fr}.two{grid-template-columns:1fr}.end{padding:0 10px}.nav a{padding:7px 9px}}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="topbar">
-    <a class="logo" href="#board"><span class="pulse"></span>Job Radar</a>
-    <nav class="nav" aria-label="Sections">
-      <a href="#board" data-view="board">Board</a>
-      <a href="#radar" data-view="radar">Meet Radar</a>
-      <a href="#setup" data-view="setup">Setup</a>
+    <a class="logo" href="#radar"><span class="pulse"></span>Radar</a>
+    <nav class="nav" id="nav" aria-label="Sections" hidden>
+      <a href="#radar" data-view="radar">Radar</a>
+      <a href="#matches" data-view="matches">Matches</a>
+      <a href="#review" data-view="review">Review <span class="badge" id="reviewBadge" hidden></span></a>
+      <a href="#applied" data-view="applied">Applied</a>
+      <a href="#settings" data-view="settings">Settings</a>
     </nav>
     <button class="btn icon-btn" id="theme" title="Toggle light/dark" aria-label="Toggle light or dark theme"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg></button>
+    <a href="#settings" id="me" hidden><img class="avatar" id="avatar" alt="Your account" referrerpolicy="no-referrer"></a>
   </div>
 
-  <!-- ============ BOARD ============ -->
-  <main id="view-board">
-    <section class="hero">
-      <div>
-        <h1>Remote work worth your time.</h1>
-        <p>UI/UX and Claude Code roles you can do from Nigeria, pulled from 7 job boards plus startup careers pages. Anything not advertised in the last 10 days drops off, and comes back if it's re-posted.</p>
-        <div class="crit"><span>UI/UX · Product design</span><span>Claude Code</span><span>$1,000+/month</span><span>Remote from Nigeria</span><span>≤ 10 days old</span></div>
-      </div>
-      <button class="btn primary" id="refresh"><span class="spin"></span><span id="refreshLabel">Fetch latest</span></button>
-    </section>
-
-    <div class="banner" id="matchBanner"></div>
-    <section class="stats" id="stats"></section>
-
-    <div class="controls">
-      <div class="tabs" role="group" aria-label="Filter">
-        <button data-track="all" aria-pressed="true">All</button>
-        <button data-track="top" aria-pressed="false">Top matches</button>
-        <button data-track="design" aria-pressed="false">UI/UX</button>
-        <button data-track="claude" aria-pressed="false">Claude Code</button>
-        <button data-track="saved" aria-pressed="false">Saved</button>
-      </div>
-      <input class="search" id="q" type="search" placeholder="Search title, company, skill…">
-      <select class="sort" id="sort" aria-label="Sort"><option value="new">Newest first</option><option value="match">Best match</option></select>
-    </div>
-    <div class="toggles">
-      <button class="tg" id="tPay" aria-pressed="false">Only pay confirmed $1k+</button>
-      <button class="tg" id="tUnclear" aria-pressed="false">Include unclear locations</button>
-      <button class="tg" id="tArchive" aria-pressed="false">Show removed (&gt;10 days)</button>
-    </div>
-    <div class="sources" id="sources"></div>
-
-    <div id="live"></div>
-    <div id="archive"></div>
-
-    <footer>
-      <b>10-day rule:</b> each listing keeps every date it was advertised; its age counts from the latest one. Past 10 days it's removed, and if it's re-posted it returns tagged "Re-advertised".<br>
-      <b>Pay:</b> "Pay confirmed" means $1,000+/month stated (yearly and hourly converted; hourly assumes full-time). Unstated pay is kept and tagged. Anything stated below $1,000/month is hidden.<br>
-      <b>Sources:</b> Remotive, Jobicy, Remote OK, Himalayas, We Work Remotely, Working Nomads, Hacker News "Who's hiring", and startup job pages on Ashby, Greenhouse and Lever (edit the list in Setup). Refreshes every 6 hours while open.
-    </footer>
-  </main>
-
-  <!-- ============ MEET RADAR ============ -->
-  <main id="view-radar" hidden>
-    <!-- step 1: intake -->
-    <section id="r-intake" class="radar">
+  <!-- ============ RADAR ============ -->
+  <main id="view-radar">
+    <!-- signed out: landing -->
+    <section id="r-landing" class="radar" hidden>
       <div class="radar-copy">
         <h1>Meet<br><em>Radar.</em></h1>
-        <p>A short voice conversation, about 10 minutes, so Radar understands your work well beyond a CV, then scores every job on the board for you.</p>
-        <ul>
-          <li>It reads your CV first, so it skips the basics and asks about depth.</li>
-          <li>One question at a time. Talk, or type if you prefer.</li>
-          <li>Your profile stays in this browser; you can edit it afterwards.</li>
+        <p>Your job hunt, handled. Talk to Radar for 10 minutes. It learns what you're great at and what you want, then finds remote roles that clearly fit you and drafts a tailored application for each one.</p>
+        <ul class="steps">
+          <li><b>1</b><span>Upload your CV and have a short voice conversation.</span></li>
+          <li><b>2</b><span>Every morning Radar searches job boards for roles that match you, and only shows the strong ones.</span></li>
+          <li><b>3</b><span>You approve each application. Radar sends the ones that take email from your Gmail; for forms it hands you a ready pack.</span></li>
         </ul>
+        <div id="landingMsg"></div>
+        <a class="gbtn" href="/api/auth/login" id="signin"><svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>Continue with Google</a>
+        <p class="fine">Google will ask permission for Radar to send email as you. It only ever sends an application after you tap Approve. Invite-only while in testing.</p>
+      </div>
+      <div class="call" aria-hidden="true">
+        <div class="call-top"><span class="live">Radar</span><span>Private conversation</span></div>
+        <div class="orb-wrap"><canvas class="orb" id="orbLanding" width="480" height="480"></canvas><div class="status">Ready when you are</div></div>
+        <div class="transcript">
+          <p class="t"><span class="who">Radar</span>I see you've been building product and design systems. What's the story behind your best project?</p>
+          <p class="t me"><span class="who">You</span>It started with helping a friend run her food business…</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- intake -->
+    <section id="r-intake" class="radar" hidden>
+      <div class="radar-copy">
+        <h1><span class="hiName">Hi</span>,<br>meet <em>Radar.</em></h1>
+        <p>First, give Radar something to read. Then it'll talk with you for about 10 minutes, one question at a time, and skip anything your CV already answers.</p>
+        <p style="font-size:14px">Your CV is also what Radar attaches when it sends an email application for you.</p>
       </div>
       <div class="panel">
         <h2>Before we talk</h2>
-        <p class="sub">Give Radar something to read first.</p>
+        <p class="sub">PDF works best, and it can be attached to applications.</p>
         <div id="intakeMsg"></div>
         <div class="field">
           <label>Your CV <span class="hint">PDF or text file, max 3 MB</span></label>
           <label class="drop" for="cv">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M12 18v-6M9 15l3-3 3 3"/></svg>
-            <div><b id="cvName">Choose a file</b><span>Word file? Save it as PDF first.</span></div>
+            <div><b id="cvName">Choose a file</b><span id="cvHint">Word file? Save it as PDF first.</span></div>
           </label>
           <input id="cv" type="file" accept=".pdf,.txt,.md,application/pdf,text/plain" hidden>
         </div>
@@ -260,18 +242,18 @@ code{font:13px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;backgrou
         </div>
         <div class="field">
           <label for="mode">How do you want to talk?</label>
-          <select id="mode"><option value="voice">Voice (ElevenLabs)</option><option value="text">Typing only</option></select>
+          <select id="mode"><option value="voice">Voice</option><option value="text">Typing only</option></select>
         </div>
         <button class="btn teal" id="startBtn"><span class="spin"></span>Read my CV &amp; start</button>
       </div>
     </section>
 
-    <!-- step 2: the call -->
+    <!-- the call -->
     <section id="r-call" class="radar" hidden>
       <div class="radar-copy">
-        <h1><span id="callName">Hi</span>,<br>meet <em>Radar.</em></h1>
-        <p>Radar is here to understand your work and what you want next, so it can surface roles, contracts and advisory work worth your time. Everything stays private to you.</p>
-        <p style="font-size:14px">Tip: Radar listens until you pause. Tap the mic to stop early, or just type.</p>
+        <h1><span class="hiName">Hi</span>,<br>meet <em>Radar.</em></h1>
+        <p>Radar is here to understand your work and what you want next, so it can find roles worth your time and apply well. Everything stays private to you.</p>
+        <p style="font-size:14px">Radar listens until you pause. Tap the mic to stop early, or just type.</p>
       </div>
       <div class="call">
         <div class="call-top"><span class="live" id="callState">Live</span><span id="qCount"></span></div>
@@ -287,16 +269,16 @@ code{font:13px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;backgrou
       </div>
     </section>
 
-    <!-- step 3: profile -->
+    <!-- profile -->
     <section id="r-profile" hidden>
       <div class="profile-wrap">
         <div class="panel">
           <h2>Your Radar profile</h2>
-          <p class="sub">Built from your CV and the conversation. Fix anything that's off; match scores use exactly this.</p>
+          <p class="sub">Built from your CV and the conversation. Radar searches for these roles and only shows jobs that clearly fit. Fix anything that's off.</p>
           <div id="profileMsg"></div>
           <form id="profileForm"></form>
           <div class="row" style="gap:8px;margin-top:6px">
-            <button class="btn teal" id="saveProfile">Save &amp; score my matches</button>
+            <button class="btn teal" id="saveProfile">Save &amp; find my matches</button>
             <button class="btn" id="redo">Redo interview</button>
           </div>
         </div>
@@ -304,30 +286,74 @@ code{font:13px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;backgrou
     </section>
   </main>
 
-  <!-- ============ SETUP ============ -->
-  <main id="view-setup" hidden>
+  <!-- ============ MATCHES ============ -->
+  <main id="view-matches" hidden>
+    <section class="head">
+      <div>
+        <h1 id="mTitle">Your matches</h1>
+        <p id="mSub">Only roles that clearly fit your interview. Anything you've applied to or passed on won't come back.</p>
+      </div>
+      <div class="row" style="gap:12px">
+        <label class="thresh">Show <input type="range" id="thresh" min="50" max="95" step="5"> <span id="threshVal">75</span>+</label>
+        <button class="btn primary" id="syncBtn"><span class="spin"></span><span id="syncLabel">Check now</span></button>
+      </div>
+    </section>
+    <section class="stats" id="stats"></section>
+    <div class="syncbar" id="syncbar"></div>
+    <div id="mMsg"></div>
+    <div id="matchGrid"></div>
+  </main>
+
+  <!-- ============ REVIEW ============ -->
+  <main id="view-review" hidden>
+    <div class="narrow">
+      <section class="head"><div><h1>Ready for review</h1><p>Nothing is sent until you approve it. Edit anything first.</p></div></section>
+      <div id="reviewMsg"></div>
+      <div id="reviewList"></div>
+    </div>
+  </main>
+
+  <!-- ============ APPLIED ============ -->
+  <main id="view-applied" hidden>
+    <div class="narrow">
+      <section class="head"><div><h1>Applied</h1><p>Everything sent or applied to. These jobs won't be suggested again.</p></div></section>
+      <div class="list" id="appliedList"></div>
+      <details style="margin-top:22px"><summary class="muted" style="cursor:pointer">Passed on</summary><div class="list" id="skippedList" style="margin-top:10px"></div></details>
+    </div>
+  </main>
+
+  <!-- ============ SETTINGS ============ -->
+  <main id="view-settings" hidden>
     <div class="setup">
       <div class="panel">
-        <h2>Setup</h2>
-        <p class="sub">Radar's AI and voice run on your Vercel site using your own keys. They're locked behind a passcode so nobody else can spend your credits.</p>
-        <ul class="checks" id="health"></ul>
-        <div class="field" style="margin-top:14px">
-          <label for="pass">Passcode <span class="hint">the APP_PASSCODE you set in Vercel; saved in this browser</span></label>
-          <div class="row" style="flex-wrap:nowrap"><input id="pass" type="password" autocomplete="current-password" style="flex:1"><button class="btn" id="savePass">Save</button></div>
+        <h2>Account</h2>
+        <p class="sub" id="acct"></p>
+        <div id="gmailState"></div>
+        <div class="row"><a class="btn" href="/api/auth/logout">Sign out</a></div>
+      </div>
+      <div class="panel">
+        <h2>Your CV &amp; profile</h2>
+        <p class="sub" id="cvState"></p>
+        <div class="row">
+          <label class="btn" for="cv2">Replace CV</label><input id="cv2" type="file" accept=".pdf,application/pdf" hidden>
+          <a class="btn" href="#radar" id="editProfile">Edit profile</a>
+          <button class="btn" id="redo2">Redo interview</button>
         </div>
-        <div id="setupMsg"></div>
       </div>
       <div class="panel">
-        <h2>Startup job pages</h2>
-        <p class="sub">Many startups (including lots on Wellfound) post jobs on Ashby, Greenhouse or Lever. Paste one careers link per line, e.g. <code>jobs.ashbyhq.com/supabase</code>, <code>boards.greenhouse.io/gitlab</code>, <code>jobs.lever.co/company</code>.</p>
-        <div class="field"><textarea id="boards" style="min-height:160px"></textarea></div>
-        <div class="row"><button class="btn primary" id="saveBoards">Save &amp; fetch</button><button class="btn" id="resetBoards">Reset to defaults</button></div>
-        <div class="boardlist" id="boardStatus"></div>
+        <h2>Daily email</h2>
+        <p class="sub">When the morning run drafts new applications, Radar emails you a short summary (from your own Gmail, to yourself).</p>
+        <label class="row" style="font-weight:600"><input type="checkbox" id="digest"> Send me the daily summary</label>
       </div>
       <div class="panel">
-        <h2>Your data</h2>
-        <p class="sub">Saved jobs, applied marks, your profile and interview live only in this browser.</p>
-        <button class="btn" id="wipe">Clear everything on this device</button>
+        <h2>Site status</h2>
+        <p class="sub">What's configured on this Vercel site.</p>
+        <ul class="checks" id="health"></ul>
+      </div>
+      <div class="panel">
+        <h2>Delete my data</h2>
+        <p class="sub">Removes your profile, interview, CV, matches and applications from Radar's database and signs you out.</p>
+        <button class="btn danger" id="wipe">Delete everything</button>
       </div>
     </div>
   </main>
