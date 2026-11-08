@@ -55,6 +55,13 @@ input,textarea,select{font:inherit;color:inherit}
 .site-head{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:saturate(1.4) blur(10px);-webkit-backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid var(--line)}
 .topbar{max-width:1180px;margin:0 auto;padding:0 16px;height:64px;display:flex;align-items:center;gap:10px}
 .head-gap{flex:1}
+/* right-side controls: one 38px row, centred */
+.topbar #me{display:flex;align-items:center;height:38px;border-radius:50%}
+.topbar #me .avatar{width:38px;height:38px;display:block}
+.topbar #creditPill{display:inline-flex;align-items:center;height:38px;padding:0 14px!important;box-sizing:border-box;border-radius:999px}
+.topbar #creditPill[hidden]{display:none}
+.topbar #theme{width:38px;height:38px;border-radius:50%;border:0;background:var(--chip);box-shadow:none;display:grid;place-items:center;padding:0}
+.topbar #theme:hover{background:color-mix(in srgb,var(--ink) 12%,var(--chip))}
 /* the blip in the logo pulses while Radar is searching */
 .logo-mark .blip{transform-box:fill-box;transform-origin:center}
 body.searching .logo-mark .blip{animation:blip 1.2s ease-in-out infinite}
