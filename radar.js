@@ -86,6 +86,8 @@ function enterCall(fresh){
   document.querySelectorAll('.hiName').forEach(el => el.textContent = firstName());
   redrawTranscript(); qCount(); step('call'); startOrb();
   syncMode();
+  if(S.wrap && !fresh){ wrapUp(true); return }
+  $('wrapUp').hidden = true; $('composer').hidden = false; $('callFoot').hidden = false;
   if(fresh || !S.messages.length) think();
   else { setStatus(S.voice ? 'Tap the mic to continue' : 'Type to continue') }
 }
@@ -103,7 +105,7 @@ async function think(){
     busy = false;
     if(reply){ S.messages.push({role:'assistant', content:reply}); persist(); addLine('assistant', reply); qCount(); await speak(reply) }
     if(my !== turn) return;                       // you answered (typed/pasted) while Radar was talking
-    if(r.done) return finish();
+    if(r.done) return wrapUp();
     if(!reply){ phase = 'idle'; setStatus('Radar didn\'t respond. Send your answer again'); return }
     if(S.voice) listen(); else { setStatus('Your turn, type below'); phase = 'idle'; $('typeBox').focus() }
   }catch(e){
@@ -129,7 +131,22 @@ $('micBtn').addEventListener('click', () => {
   if(rec) return stopListening(true);
   stopSpeaking(); if(!busy) listen();
 });
-$('endBtn').addEventListener('click', () => { stopListening(false); stopSpeaking(); finish() });
+$('endBtn').addEventListener('click', () => { stopListening(false); stopSpeaking(); wrapUp() });
+// End of the interview: everything else goes away and one Submit button is left
+function wrapUp(on = true){
+  if(on && !S.messages.some(m => m.role === 'user')){ setStatus('Answer at least one question first'); return }
+  S.wrap = on; persist();
+  $('wrapUp').hidden = !on; $('composer').hidden = on; $('callFoot').hidden = on;
+  if(on){
+    stopListening(false);
+    [...$('qProg').children].forEach(b => b.className = 'on');
+    $('qCount').textContent = 'All done';
+    setStatus('That\'s everything I need. Submit to build your profile.');
+    $('submitBtn').focus();
+  } else { qCount(); syncMode(); setStatus(S.voice ? 'Tap the mic to add more' : 'Type what you\'d like to add'); if(!S.voice) $('typeBox').focus() }
+}
+$('submitBtn').addEventListener('click', () => finish());
+$('keepBtn').addEventListener('click', () => wrapUp(false));
 $('restartBtn').addEventListener('click', () => {
   if(!confirm('Start over? This clears the current conversation.')) return;
   stopListening(false); stopSpeaking(); S = Object.assign(blank(), {voice:S.voice}); persist(); show();
@@ -330,15 +347,15 @@ async function finish(){
   stopListening(false);
   if(!S.messages.some(m => m.role === 'user')){ setStatus('Answer at least one question first'); return }
   setStatus('Building your profile…'); phase = 'think';
-  $('endBtn').disabled = true;
+  $('endBtn').disabled = true; $('submitBtn').disabled = true; $('submitBtn').classList.add('loading'); $('submitLabel').textContent = 'Building your profile…'; $('keepBtn').hidden = true;
   try{
     const {profile} = await api('chat', {mode:'profile', brief:S.brief, messages:S.messages}, {timeout:90000});
     if(!profile.name && S.name) profile.name = S.name;
     await JR.setProfile(profile);
     S.done = true; persist();
     renderProfile(profile); step('profile');
-  }catch(e){ setStatus(e.message || 'Couldn\'t build your profile. Tap Finish again.') }
-  finally{ $('endBtn').disabled = false; phase = 'idle' }
+  }catch(e){ setStatus(e.message || 'Couldn\'t build your profile. Tap Submit again.') }
+  finally{ $('endBtn').disabled = false; $('submitBtn').disabled = false; $('submitBtn').classList.remove('loading'); $('submitLabel').textContent = 'Submit and build my profile'; $('keepBtn').hidden = false; phase = 'idle' }
 }
 const FIELDS = [
   ['headline','Headline','text'], ['summary','Summary','area'],

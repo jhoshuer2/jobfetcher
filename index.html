@@ -144,6 +144,11 @@ canvas.orb{width:240px;height:240px}
 .call-foot{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:12.5px;color:var(--call-muted)}
 .call-foot button{background:none;border:0;color:var(--call-muted);text-decoration:underline;padding:0;font-size:12.5px}
 .call-foot{align-items:center}
+.wrapup{display:flex;flex-direction:column;align-items:center;gap:10px;padding:4px 0 2px}
+.submit{width:100%;height:52px;border:0;border-radius:12px;background:#C9F27A;color:#1C1B19;font:600 16px/1 Inter,system-ui,sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;box-shadow:0 8px 24px -10px rgba(201,242,122,.6);transition:transform .15s ease,background .15s}
+.submit:hover{background:#D6F79A}.submit:active{transform:scale(.99)}
+.submit:disabled{opacity:.8;cursor:progress}
+.keepgoing{background:none;border:0;color:var(--call-muted);font-size:13px;text-decoration:underline;cursor:pointer;padding:4px}
 .modesw{display:inline-flex;padding:3px;border-radius:999px;background:rgba(255,255,255,.08);gap:2px}
 .call-foot .modesw button{text-decoration:none;padding:5px 12px;border-radius:999px;font-size:12.5px;font-weight:500;color:var(--call-muted);cursor:pointer}
 .call-foot .modesw button[aria-checked="true"]{background:var(--call-ink);color:#1C1B19}
@@ -413,13 +418,17 @@ html.theming,html.theming *{transition:background-color .5s ease,color .5s ease,
         <div class="qprog" id="qProg" role="progressbar" aria-label="Interview progress" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
         <div class="orb-wrap"><canvas class="orb" id="orb" width="480" height="480"></canvas><div class="status" id="status">Connecting…</div></div>
         <div class="transcript" id="transcript" aria-live="polite"></div>
-        <div class="composer">
+        <div class="wrapup" id="wrapUp" hidden>
+          <button class="submit" id="submitBtn"><span class="spin"></span><span id="submitLabel">Submit and build my profile</span></button>
+          <button class="keepgoing" id="keepBtn" type="button">I have something to add</button>
+        </div>
+        <div class="composer" id="composer">
           <button class="mic" id="micBtn" title="Talk" aria-label="Start or stop talking"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
           <input id="typeBox" placeholder="Type your answer…" autocomplete="off">
           <button class="send" id="sendBtn" aria-label="Send" disabled><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
           <button class="end" id="endBtn">Finish</button>
         </div>
-        <div class="call-foot"><span class="mic-row"><span class="modesw" role="radiogroup" aria-label="How you answer"><button type="button" role="radio" data-mode="voice">Voice</button><button type="button" role="radio" data-mode="text">Type</button></span><span id="voiceNote" hidden></span><span class="mic-meter" id="micMeterBar" hidden><i></i></span><select id="micPick" aria-label="Microphone" hidden></select></span><button id="restartBtn">Start over</button></div>
+        <div class="call-foot" id="callFoot"><span class="mic-row"><span class="modesw" role="radiogroup" aria-label="How you answer"><button type="button" role="radio" data-mode="voice">Voice</button><button type="button" role="radio" data-mode="text">Type</button></span><span id="voiceNote" hidden></span><span class="mic-meter" id="micMeterBar" hidden><i></i></span><select id="micPick" aria-label="Microphone" hidden></select></span><button id="restartBtn">Start over</button></div>
       </div>
     </section>
 

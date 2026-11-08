@@ -23,7 +23,7 @@ module.exports = async (req, res) => {
   switch (body.action) {
     case 'radar': {
       const r = body.radar || {};
-      const clean = { name: String(r.name || '').slice(0, 60), brief: String(r.brief || '').slice(0, 5000), done: !!r.done, voice: r.voice !== false,
+      const clean = { name: String(r.name || '').slice(0, 60), brief: String(r.brief || '').slice(0, 5000), done: !!r.done, wrap: !!r.wrap, voice: r.voice !== false,
         messages: (Array.isArray(r.messages) ? r.messages : []).slice(-60).map(m => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: String(m.content || '').slice(0, 4000) })) };
       await db.set('radar:' + uid, clean);
       return res.status(200).json({ ok: true });
