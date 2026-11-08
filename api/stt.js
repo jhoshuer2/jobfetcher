@@ -18,13 +18,14 @@ module.exports = async (req, res) => {
     const form = new FormData();
     form.append('model_id', process.env.ELEVENLABS_STT_MODEL || 'scribe_v1');
     form.append('language_code', 'en');
+    form.append('tag_audio_events', 'false');
     form.append('file', new Blob([Buffer.from(b64, 'base64')], { type: mime }), 'answer.' + ext);
     const r = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
       method: 'POST', headers: { 'xi-api-key': process.env.ELEVENLABS_API_KEY }, body: form, signal: AbortSignal.timeout(45000)
     });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) return res.status(502).json({ error: 'Transcription failed: HTTP ' + r.status, detail: JSON.stringify(data).slice(0, 300) });
-    return res.status(200).json({ text: String(data.text || '').trim() });
+    return res.status(200).json({ text: String(data.text || '').replace(/\([^)]*\)|\[[^\]]*\]/g, ' ').replace(/\s+/g, ' ').trim() });
   } catch (e) {
     return res.status(502).json({ error: 'Transcription failed: ' + e.message });
   }

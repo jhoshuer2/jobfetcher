@@ -114,7 +114,7 @@ function unlockAudio(){
     ctx ||= new (window.AudioContext || window.webkitAudioContext)();
     if(ctx.state === 'suspended') ctx.resume();
     if(!outMeter){ outMeter = Object.assign(ctx.createAnalyser(), {fftSize:512}); outMeter.connect(ctx.destination) }
-    micMeter ||= Object.assign(ctx.createAnalyser(), {fftSize:512});
+    if(!micMeter){ micMeter = Object.assign(ctx.createAnalyser(), {fftSize:512}); const mute = ctx.createGain(); mute.gain.value = 0; micMeter.connect(mute); mute.connect(ctx.destination) }
   }catch(e){}
 }
 const buf = new Uint8Array(512);
@@ -166,7 +166,11 @@ async function listen(){
   if(rec || busy || opening) return;
   if(!window.MediaRecorder || !navigator.mediaDevices){ setStatus('This browser can\'t record. Type instead'); return }
   opening = true; unlockAudio();
-  try{ stream ||= await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true}}) }
+  try{
+    if(stream && !stream.getAudioTracks().some(t => t.readyState === 'live')) stream = null;
+    stream ||= await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true, autoGainControl:true}});
+    if(ctx && ctx.state === 'suspended') await ctx.resume().catch(() => {});
+  }
   catch(e){ opening = false; setStatus('Microphone blocked: allow it, or type instead'); phase = 'idle'; return }
   opening = false;
   if(rec || busy) return;
@@ -176,19 +180,21 @@ async function listen(){
   rec = new MediaRecorder(stream, mime ? {mimeType:mime} : undefined); chunks = [];
   rec.ondataavailable = e => e.data.size && chunks.push(e.data);
   rec.start(250);
-  phase = 'listen'; setStatus('Listening…'); $('micBtn').classList.add('on');
-  // simple voice-activity detection: stop ~1.6s after you stop talking
-  let heard = 0, quiet = 0; const t0 = Date.now();
+  phase = 'listen'; setStatus('Listening… tap the mic when you\'re done'); $('micBtn').classList.add('on');
+  // voice-activity detection that adapts to the mic: learn the room's noise level, then stop ~1.6s after you stop talking
+  let heard = 0, quiet = 0, floor = null, peak = 0; const t0 = Date.now();
   vadTimer = setInterval(() => {
-    const l = readLevel('mic');
-    if(l > 0.035){ heard += 100; quiet = 0 } else quiet += 100;
+    const l = readLevel('mic'); peak = Math.max(peak, l);
     const secs = (Date.now() - t0) / 1000;
+    if(secs < 0.4){ floor = floor === null ? l : Math.min(floor, l); return }
+    const on = l > Math.max(0.012, (floor || 0) * 3);
+    if(on){ heard += 100; quiet = 0; if(heard === 300) setStatus('Hearing you… tap the mic when you\'re done') } else quiet += 100;
     if(heard >= 400 && quiet >= 1600) stopListening(true);
-    else if(!heard && secs > 15){ stopListening(false); setStatus('Tap the mic when you\'re ready') }
+    else if(!heard && secs > 20) stopListening(true, peak < 0.003 ? 'silent' : 'quiet');
     else if(secs > 120) stopListening(true);
   }, 100);
 }
-function stopListening(send){
+function stopListening(send, why){
   clearInterval(vadTimer); vadTimer = null;
   $('micBtn').classList.remove('on');
   try{ micSrc && micSrc.disconnect() }catch(e){}
@@ -197,12 +203,13 @@ function stopListening(send){
   r.onstop = async () => {
     if(!send){ return }
     const blob = new Blob(chunks, {type: r.mimeType || 'audio/webm'});
-    if(blob.size < 2000){ setStatus('Didn\'t catch that. Tap the mic and try again'); return }
+    const noMic = 'I can\'t hear your microphone. Check it isn\'t muted and the right mic is selected in your browser, or type instead.';
+    if(blob.size < 2000){ setStatus(why === 'silent' ? noMic : 'Didn\'t catch that. Tap the mic and try again'); return }
     setStatus('Transcribing…'); phase = 'think';
     try{
       const b64 = await new Promise((ok, no) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(',')[1]); fr.onerror = no; fr.readAsDataURL(blob) });
       const {text} = await api('stt', {audio:b64, mime:blob.type});
-      if(!text){ setStatus('Didn\'t catch that'); phase = 'idle'; return listen() }
+      if(!text){ phase = 'idle'; setStatus(why === 'silent' ? noMic : 'Didn\'t catch that. Tap the mic and try again, or type instead.'); return }
       answer(text);
     }catch(e){ phase = 'idle'; setStatus('Couldn\'t transcribe: ' + e.message + '. You can type instead.') }
   };
