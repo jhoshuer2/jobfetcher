@@ -127,6 +127,7 @@ async function sync(force){
       JR.feed = await api('jobs', {action:'sync', force: !!force && i === 0}, {timeout: 70000});
       updateBadge(); renderMatches();
       if(!JR.feed.pending) break;
+      if(JR.feed.ran && JR.feed.ran.error === 'limit') break;
       if(JR.feed.ran && JR.feed.ran.refreshed) continue;
       stuck = JR.feed.ran && JR.feed.ran.scored ? 0 : stuck + 1;
       if(stuck >= 2) break;
@@ -196,8 +197,16 @@ function renderMatches(){
     <div class="tags">${j.monthly ? `<span class="tag money">${I.cash}$${j.monthly.toLocaleString()}/mo</span>` : ''}</div>
     <div class="jfoot"><a class="btn" href="${esc(j.url)}" target="_blank" rel="noopener">${I.ext} View post</a></div>
   </article>`;
-  const waitBlock = waiting.length ? `<div class="jsec">Being scored · ${f.pending}${!syncing ? ' <a href="#" id="scoreMore">Score now</a>' : ''}</div><div class="jgrid">${waiting.map(scoringCard).join('')}</div>` : '';
-  const err = !syncing && f.ran && f.ran.error && f.pending ? `<p class="msg err">Scoring paused: ${esc(f.ran.error)}</p>` : '';
+  const waitBlock = waiting.length ? `<div class="jsec">Being scored · ${f.pending}${!syncing && !(f.ran && f.ran.error === 'limit') ? ' <a href="#" id="scoreMore">Score now</a>' : ''}</div><div class="jgrid">${waiting.map(scoringCard).join('')}</div>` : '';
+  const bal = JR.me.balance || {};
+  let err = '';
+  if(!syncing && f.ran && f.ran.error && f.pending){
+    err = f.ran.error === 'limit'
+      ? `<div class="gmailcard limitcard"><span class="gm-ico" aria-hidden="true">${I.clock}</span>
+          <div class="gm-text"><b>You've used today's scoring</b><span>Radar scores up to 200 roles a day for you, and ${f.pending} more ${f.pending > 1 ? 'are' : 'is'} waiting. Score 100 more now for 1 credit, or Radar carries on tomorrow morning.</span></div>
+          ${bal.credits ? `<button class="btn teal" id="boostBtn"><span class="spin"></span>Score 100 more · 1 credit</button>` : `<a class="btn teal" href="#credits">Get credits</a>`}</div>`
+      : `<p class="msg err">Scoring paused: ${esc(f.ran.error)}</p>`;
+  }
   const wider = f.jobs.filter(j => j.match.score >= 60).length;
   let zero = '';
   if(!jobs.length && !waiting.length){
@@ -209,6 +218,11 @@ function renderMatches(){
   const more = $('scoreMore'); if(more) more.onclick = e => { e.preventDefault(); sync(false) };
   const zw = $('zeroWider'); if(zw) zw.onclick = () => document.querySelector('#fitSeg [data-th="60"]').click();
   const zc = $('zeroCheck'); if(zc) zc.onclick = () => sync(true);
+  const bb = $('boostBtn'); if(bb) bb.onclick = async () => {
+    bb.disabled = true; bb.classList.add('loading');
+    try{ const r = await api('jobs', {action:'boost'}); JR.setBalance(r.balance); toast(`Unlocked ${r.added} more roles for today.`); JR.feed.ran = null; sync(false) }
+    catch(e){ bb.disabled = false; bb.classList.remove('loading'); if(e.code === 'no_credits' || /credit/i.test(e.message)) location.hash = '#credits'; else toast(e.message) }
+  };
 }
 // Match level: Best fits (85+), Strong (75+), Worth a look (60+). Also sets which matches the morning run drafts for.
 const fitLevel = () => { const t = +(JR.me.settings.threshold || 75); return t >= 85 ? 85 : t >= 75 ? 75 : 60 };

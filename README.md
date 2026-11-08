@@ -50,7 +50,7 @@ Vercel project → **Settings → Environment Variables**:
 | `ANTHROPIC_API_KEY` | console.anthropic.com → API Keys |
 | `ELEVENLABS_API_KEY` | elevenlabs.io → Developers → API Keys (Text to Speech + Speech to Text) |
 
-Optional: `ALLOWED_EMAILS` (make it invite-only), `FREE_APPLICATIONS` (default 2), `PACKS` (JSON, e.g. `[{"id":"p5","apps":5,"amount":3000,"label":"Starter"}]`, amount in naira), `PAY_CURRENCY` (default `NGN`), `ELEVENLABS_VOICE_ID` (default Jessica), `CHAT_MODEL` / `DRAFT_MODEL` (default `claude-sonnet-5-5`), `MATCH_MODEL` (default `claude-haiku-5-5`), `LIMIT_MULTIPLIER` (scales the per-person daily limits), `APP_URL` (if you use a custom domain).
+Optional: `ALLOWED_EMAILS` (make it invite-only), `FREE_APPLICATIONS` (default 2), `PACKS` (JSON, e.g. `[{"id":"p5","apps":5,"amount":3000,"label":"Starter"}]`, amount in naira), `PAY_CURRENCY` (default `NGN`), `ELEVENLABS_VOICE_ID` (default Jessica), `CHAT_MODEL` / `DRAFT_MODEL` (default `claude-sonnet-5-5`), `MATCH_MODEL` (default `claude-haiku-5-5`), `LIMIT_MULTIPLIER` (scales the per-person daily limits), `BOOST_SCORES` (roles one credit unlocks once someone hits the daily scoring limit; default 100), `APP_URL` (if you use a custom domain).
 
 ### 4. Paystack
 1. Create an account at paystack.com and complete business verification (needed for live payments).
@@ -60,7 +60,7 @@ Optional: `ALLOWED_EMAILS` (make it invite-only), `FREE_APPLICATIONS` (default 2
 Then **Deployments → ⋯ → Redeploy**. On the site, **Settings → Site status** should show everything ticked.
 
 ## Costs & limits
-Everyone uses the owner's Claude and ElevenLabs keys. Per person per day: 120 interview turns, 120 voice clips each way, 200 jobs scored, 25 drafts, 15 sends. Multiply with `LIMIT_MULTIPLIER`.
+Everyone uses the owner's Claude and ElevenLabs keys. Per person per day: 120 interview turns, 120 voice clips each way, 200 jobs scored, 25 drafts, 15 sends. Multiply with `LIMIT_MULTIPLIER`. Owners are never limited. Anyone who hits the scoring limit can spend 1 credit to score 100 more that day.
 
 ## Files
 | File | What it does |

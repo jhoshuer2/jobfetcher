@@ -262,7 +262,7 @@ async function scoreFor(uid, u, jobs, deadline) {
   let n = 0, lastErr = '';
   for (let i = 0; i < todo.length && Date.now() < deadline - 12000; i += 20) {
     const batch = todo.slice(i, i + 20);
-    if (!(await useQuota(uid, 'score', batch.length))) { lastErr = 'Daily scoring limit reached; Radar continues tomorrow morning.'; break; }
+    if (!(await useQuota(uid, 'score', batch.length))) { lastErr = 'limit'; break; }
     // Short ids: the model echoes "j3" reliably; long company|title keys sometimes come back altered and get lost.
     const idOf = new Map(batch.map((j, k) => ['j' + (k + 1), j.key]));
     let text = '';

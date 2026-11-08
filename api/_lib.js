@@ -118,11 +118,25 @@ function allowed(email) {
 
 /* ---------------- per-user daily limits (protects the owner's credits) ---------------- */
 const LIMITS = { chat: 120, tts: 120, stt: 120, score: 200, draft: 25, send: 15 };
+// Daily per-person limits. Owners (OWNER_EMAILS) are never limited. Extra scoring bought with a credit adds to today's limit.
+const BOOST_SCORES = () => Math.max(1, +(process.env.BOOST_SCORES || 100));
 async function useQuota(uid, kind, n = 1) {
   const max = Math.round(LIMITS[kind] * (+process.env.LIMIT_MULTIPLIER || 1));
   const key = `use:${uid}:${kind}:${today()}`;
-  const [count] = await pipe([['INCRBY', key, n], ['EXPIRE', key, 172800]]);
-  return count <= max;
+  const [count, , bonus, userRaw] = await pipe([['INCRBY', key, n], ['EXPIRE', key, 172800], ['GET', `bonus:${uid}:${kind}:${today()}`], ['GET', 'user:' + uid]]);
+  if (count <= max + (+bonus || 0)) return true;
+  let email = ''; try { email = JSON.parse(userRaw || '{}').email } catch { }
+  if (isOwner(email)) return true;
+  await redis('DECRBY', key, n);   // don't count work that never ran
+  return false;
+}
+// Spend one paid credit to add BOOST_SCORES to today's scoring limit. Returns false if there are no credits.
+async function buyScoreBoost(uid) {
+  const left = await redis('DECRBY', 'credits:' + uid, 1);
+  if (left < 0) { await redis('INCRBY', 'credits:' + uid, 1); return false; }
+  const k = `bonus:${uid}:score:${today()}`;
+  await pipe([['INCRBY', k, BOOST_SCORES()], ['EXPIRE', k, 172800]]);
+  return true;
 }
 async function quotaOr429(res, uid, kind, n = 1) {
   if (await useQuota(uid, kind, n)) return true;
@@ -223,7 +237,7 @@ async function refundDraft(user, source) {
 }
 
 module.exports = {
-  FREE_DRAFTS, isOwner, packs, CURRENCY, balance, spendDraft, refundDraft,
+  FREE_DRAFTS, isOwner, packs, CURRENCY, balance, spendDraft, refundDraft, buyScoreBoost, BOOST_SCORES,
   readJson, requireEnv, missingEnv, baseUrl, today, db, redis, pipe,
   encrypt, decrypt, setCookie, parseCookies, makeSession, readSession, requireUser, allowed, b64u,
   useQuota, quotaOr429, claude, extractJson, MODELS, gmailSend
