@@ -118,15 +118,20 @@ async function sync(force){
   const btn = $('syncBtn'); btn.disabled = true; btn.classList.add('loading'); $('syncLabel').textContent = 'Checking…';
   $('mMsg').innerHTML = '<p class="msg info">Radar is checking job boards and scoring new roles against your profile. This can take up to a minute.</p>';
   try{
-    for(let i = 0; i < 3; i++){
+    // A pass can spend most of its time refreshing job boards and score nothing; keep going while roles are waiting,
+    // and only give up after two passes in a row make no progress.
+    let stuck = 0;
+    for(let i = 0; i < 6; i++){
       JR.feed = await api('jobs', {action:'sync', force: !!force && i === 0}, {timeout: 70000});
       updateBadge(); renderMatches();
-      if(!JR.feed.pending || !JR.feed.ran || !JR.feed.ran.scored) break;
+      if(!JR.feed.pending) break;
+      stuck = JR.feed.ran && JR.feed.ran.scored ? 0 : stuck + 1;
+      if(stuck >= 2) break;
     }
     if(JR.feed.ran && JR.feed.ran.drafted) refreshBalance();
     $('mMsg').innerHTML = JR.feed.ran && JR.feed.ran.drafted ? `<p class="msg info">${JR.feed.ran.drafted} new application${JR.feed.ran.drafted > 1 ? 's' : ''} drafted. <a href="#review">Review now</a></p>` : '';
   }catch(e){ $('mMsg').innerHTML = `<p class="msg err">${esc(e.message)}</p>` }
-  finally{ syncing = false; btn.disabled = false; btn.classList.remove('loading'); $('syncLabel').textContent = 'Check now' }
+  finally{ syncing = false; btn.disabled = false; btn.classList.remove('loading'); $('syncLabel').textContent = 'Check now'; if(JR.feed) renderMatches() }
 }
 async function showMatches(){
   $('thresh').value = JR.me.settings.threshold; $('threshVal').textContent = JR.me.settings.threshold;
@@ -169,7 +174,7 @@ function renderMatches(){
   $('syncbar').innerHTML = `<span>Jobs checked: <i>${esc(ago(f.meta.at))}</i></span>` + (f.pending ? `<span><i>${f.pending}</i> new roles waiting to be scored</span>` : '') +
     Object.entries(src).map(([n, s]) => s.ok ? `<span>${esc(n)} <i class="ok">✓ ${s.count}</i></span>` : `<span title="${esc(s.err)}">${esc(n)} <i class="bad">✕</i></span>`).join('') + '<span>Daily run ~7am</span>';
   $('matchGrid').innerHTML = jobs.length ? `<div class="grid">${jobs.map(matchCard).join('')}</div>` :
-    `<div class="empty">${syncing ? 'Looking for roles that fit you…' : f.pending ? 'Scoring new roles…' : 'No strong matches right now. Radar checks again every morning; you can also lower the bar with the slider.'}</div>`;
+    `<div class="empty">${syncing ? 'Looking for roles that fit you…' : f.pending ? `${f.pending} new role${f.pending > 1 ? 's are' : ' is'} still waiting to be scored. Tap <b>Check now</b> to continue.` : 'No strong matches right now. Radar checks again every morning; you can also lower the bar with the slider.'}</div>`;
 }
 $('thresh').addEventListener('input', () => { $('threshVal').textContent = $('thresh').value; renderMatches() });
 $('thresh').addEventListener('change', async () => {

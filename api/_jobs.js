@@ -272,7 +272,9 @@ Penalise: different role family, seniority mismatch, missing core skills, pay be
       messages: [{ role: 'user', content: `Candidate profile:\n${JSON.stringify(u.profile).slice(0, 6000)}\n\nJobs:\n${JSON.stringify(batch.map(j => ({ id: j.key, title: j.title, company: j.company, location: j.location, type: j.type, pay: j.monthly ? `~$${j.monthly}/month` : 'not stated', snippet: String(j.text || '').slice(0, 900) })))}\n\nReturn ONLY a JSON array: [{"id":"...","score":0,"why":"...","gaps":"..."}], one per job.` }],
       maxTokens: 2500
     });
-    const arr = extractJson(text); if (!Array.isArray(arr)) continue;
+    let arr = extractJson(text);
+    if (arr && !Array.isArray(arr) && typeof arr === 'object') arr = Object.values(arr).find(Array.isArray) || null;
+    if (!Array.isArray(arr)) continue;
     const ids = new Set(batch.map(j => j.key)), out = {};
     arr.forEach(r => { if (r && ids.has(String(r.id))) out[r.id] = { score: Math.max(0, Math.min(100, Math.round(+r.score || 0))), why: String(r.why || '').slice(0, 200), gaps: String(r.gaps || '').slice(0, 160), pv: u.pv, at: Date.now() }; });
     Object.assign(u.matches, out); await db.hset('matches:' + uid, out); n += Object.keys(out).length;
