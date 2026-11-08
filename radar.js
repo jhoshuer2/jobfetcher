@@ -61,7 +61,14 @@ function addLine(role, text){
 }
 function redrawTranscript(){ tr.innerHTML = ''; S.messages.forEach(m => addLine(m.role, m.content)); }
 function setStatus(t){ $('status').textContent = t }
-function qCount(){ const n = S.messages.filter(m => m.role === 'assistant').length; $('qCount').textContent = n ? `Question ${n}` : '' }
+// Progress: about 10 questions; the current one blinks, and past 10 it reads "Wrapping up"
+function qCount(){
+  const n = S.messages.filter(m => m.role === 'assistant').length;
+  $('qCount').textContent = !n ? '' : n <= 10 ? `Question ${n} of about 10 · finish anytime` : 'Wrapping up';
+  const bars = [...$('qProg').children];
+  bars.forEach((b, i) => { b.className = i < n - 1 || n > 10 ? 'on' : i === n - 1 ? 'now' : '' });
+  $('qProg').setAttribute('aria-valuenow', String(Math.min(n, 10)));
+}
 
 // Voice / Type switch in the call footer: change how you answer at any point
 function syncMode(){
@@ -114,7 +121,9 @@ function answer(text){
   if(busy){ busy = false; turn++ }                // newer answer replaces the pending one
   think();
 }
-$('sendBtn').addEventListener('click', () => { stopListening(false); stopSpeaking(); const v = $('typeBox').value; $('typeBox').value = ''; answer(v) });
+const syncSend = () => { $('sendBtn').disabled = !$('typeBox').value.trim() };
+$('typeBox').addEventListener('input', syncSend);
+$('sendBtn').addEventListener('click', () => { const v = $('typeBox').value; if(!v.trim()) return; stopListening(false); stopSpeaking(); $('typeBox').value = ''; syncSend(); answer(v) });
 $('typeBox').addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); $('sendBtn').click() } });
 $('micBtn').addEventListener('click', () => {
   if(rec) return stopListening(true);

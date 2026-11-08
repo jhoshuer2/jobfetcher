@@ -80,6 +80,9 @@ module.exports = async (req, res) => {
       // The API needs the first message to be from the user.
       const messages = [{ role: 'user', content: '(The candidate has joined the call.)' }, ...history];
       if (messages[messages.length - 1].role === 'assistant') messages.push({ role: 'user', content: '(silence — please continue)' });
+      // Keep the interview to roughly 10 questions: from the 11th answer on, ask Radar to wrap up.
+      const asked = history.filter(m => m.role === 'assistant').length;
+      if (asked >= 11) { const last = messages[messages.length - 1]; messages[messages.length - 1] = { role: 'user', content: last.content + '\n\n(Interviewer note: you have enough now. Thank them in one sentence and end with [[DONE]].)' }; }
       const system = INTERVIEWER(clip(body.brief, 4000), clip(body.name, 60));
       let text = (await claude({ model: MODELS.chat(), system, messages, maxTokens: 300 })).trim();
       // Occasionally the model returns nothing (e.g. it declines a sensitive aside). Never hand the candidate an empty turn.

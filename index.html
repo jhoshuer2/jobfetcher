@@ -124,10 +124,17 @@ code{font:13px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;backgrou
 .orb-wrap{flex:1;display:grid;place-items:center;position:relative;min-height:260px}
 canvas.orb{width:240px;height:240px}
 .status{position:absolute;bottom:6px;left:0;right:0;text-align:center;font-size:13px;color:var(--glow);letter-spacing:.02em}
-.transcript{background:var(--call-2);border-radius:10px;padding:12px 14px;max-height:220px;overflow:auto;font-size:14px;display:flex;flex-direction:column;gap:10px}
-.transcript .t{margin:0}
-.transcript .who{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--call-muted);margin-bottom:2px}
-.transcript .me{color:#CFE1DC}
+.transcript{background:var(--call-2);border-radius:12px;padding:12px;max-height:280px;overflow:auto;font-size:14px;line-height:1.45;display:flex;flex-direction:column;gap:10px}
+.transcript .t{margin:0;max-width:86%;align-self:flex-start;background:rgba(255,255,255,.07);padding:9px 12px;border-radius:14px 14px 14px 4px}
+.transcript .who{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--call-muted);margin-bottom:3px}
+.transcript .t.me{align-self:flex-end;background:#C9F27A;color:#1C1B19;border-radius:14px 14px 4px 14px}
+.transcript .t.me .who{color:#4E7A14;text-align:right}
+.qprog{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;margin-top:-4px}
+.qprog i{height:4px;border-radius:99px;background:rgba(255,255,255,.12);transition:background .4s ease}
+.qprog i.on{background:var(--glow)}
+.qprog i.now{background:var(--glow);animation:qnow 1.4s ease-in-out infinite}
+@keyframes qnow{50%{opacity:.4}}
+.send:disabled{opacity:.35;cursor:not-allowed}
 .composer{display:flex;gap:8px;align-items:center;background:#F7F6F2;border-radius:10px;padding:6px}
 .composer input{flex:1;min-width:0;border:0;background:transparent;padding:9px 8px;color:#17161B;outline:none}
 .mic{width:42px;height:42px;border-radius:7px;border:0;background:#ECEAE5;color:#1C1B19;display:grid;place-items:center;flex:none}
@@ -403,12 +410,13 @@ html.theming,html.theming *{transition:background-color .5s ease,color .5s ease,
       </div>
       <div class="call">
         <div class="call-top"><span class="live" id="callState">Live</span><span id="qCount"></span></div>
+        <div class="qprog" id="qProg" role="progressbar" aria-label="Interview progress" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
         <div class="orb-wrap"><canvas class="orb" id="orb" width="480" height="480"></canvas><div class="status" id="status">Connecting…</div></div>
         <div class="transcript" id="transcript" aria-live="polite"></div>
         <div class="composer">
           <button class="mic" id="micBtn" title="Talk" aria-label="Start or stop talking"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
           <input id="typeBox" placeholder="Type your answer…" autocomplete="off">
-          <button class="send" id="sendBtn" aria-label="Send"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+          <button class="send" id="sendBtn" aria-label="Send" disabled><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
           <button class="end" id="endBtn">Finish</button>
         </div>
         <div class="call-foot"><span class="mic-row"><span class="modesw" role="radiogroup" aria-label="How you answer"><button type="button" role="radio" data-mode="voice">Voice</button><button type="button" role="radio" data-mode="text">Type</button></span><span id="voiceNote" hidden></span><span class="mic-meter" id="micMeterBar" hidden><i></i></span><select id="micPick" aria-label="Microphone" hidden></select></span><button id="restartBtn">Start over</button></div>
