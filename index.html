@@ -163,8 +163,10 @@ canvas.orb{width:240px;height:240px}
 .actions{display:flex;gap:6px;margin-top:auto;padding-top:4px;flex-wrap:wrap}
 .actions .btn{flex:1;justify-content:center}
 .empty{padding:40px 20px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:16px}
-.thresh{display:flex;align-items:center;gap:10px;font-size:13.5px;font-weight:600}
-.thresh input{accent-color:var(--teal)}
+.seg{display:inline-flex;background:var(--chip);padding:4px;border-radius:12px;gap:2px}
+.seg button{border:0;background:none;padding:8px 12px;border-radius:9px;font:600 14px/1 inherit;color:var(--muted);display:inline-flex;gap:6px;align-items:center;cursor:pointer}
+.seg button i{font-style:normal;font-size:12px;font-weight:700;opacity:.7}
+.seg button[aria-checked="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
 
 /* Review + Applied */
 .app{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:var(--shadow);margin-bottom:16px}
@@ -308,7 +310,7 @@ canvas.orb{width:240px;height:240px}
         <p id="mSub">Only roles that clearly fit your interview. Anything you've applied to or passed on won't come back.</p>
       </div>
       <div class="row" style="gap:12px">
-        <label class="thresh">Show <input type="range" id="thresh" min="50" max="95" step="5"> <span id="threshVal">75</span>+</label>
+        <div class="seg" id="fitSeg" role="radiogroup" aria-label="Which matches to show"><button type="button" role="radio" data-th="85" title="Score 85 or more: near-perfect fit">Best fits <i></i></button><button type="button" role="radio" data-th="75" title="Score 75 or more: strong fit, small gaps">Strong <i></i></button><button type="button" role="radio" data-th="60" title="Score 60 or more: includes stretch roles">Worth a look <i></i></button></div>
         <button class="btn primary" id="syncBtn"><span class="spin"></span><span id="syncLabel">Check now</span></button>
       </div>
     </section>

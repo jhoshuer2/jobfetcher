@@ -134,7 +134,6 @@ async function sync(force){
   finally{ syncing = false; btn.disabled = false; btn.classList.remove('loading'); $('syncLabel').textContent = 'Check now'; if(JR.feed) renderMatches() }
 }
 async function showMatches(){
-  $('thresh').value = JR.me.settings.threshold; $('threshVal').textContent = JR.me.settings.threshold;
   if(!JR.feed){ $('matchGrid').innerHTML = '<div class="empty">Loading your matches…</div>'; try{ await loadFeed() }catch(e){ $('mMsg').innerHTML = `<p class="msg err">${esc(e.message)}</p>`; return } }
   renderMatches();
   const stale = !JR.feed.meta.at || Date.now() - JR.feed.meta.at > 6*3600e3;
@@ -164,7 +163,8 @@ function renderMatches(){
   const p = JR.profile() || {};
   $('mTitle').textContent = p.name ? `${p.name.split(' ')[0]}, here are your matches` : 'Your matches';
   $('mSub').textContent = `${(p.roles || []).slice(0, 3).join(' · ') || 'Roles from your interview'} · ${p.country || ''}${p.minMonthlyUSD ? ' · $' + Number(p.minMonthlyUSD).toLocaleString() + '+/month' : ''}. Only roles that clearly fit; anything you've applied to or passed on won't come back.`;
-  const th = +$('thresh').value;
+  const th = fitLevel();
+  document.querySelectorAll('#fitSeg button').forEach(b => { b.setAttribute('aria-checked', String(+b.dataset.th === th)); b.querySelector('i').textContent = f.jobs.filter(j => j.match.score >= +b.dataset.th).length });
   const jobs = f.jobs.filter(j => j.match.score >= th);
   const review = f.apps.filter(a => a.status === 'review' && a.body !== undefined).length;
   const done = f.apps.filter(a => a.status === 'sent' || a.status === 'applied').length;
@@ -174,12 +174,15 @@ function renderMatches(){
   $('syncbar').innerHTML = `<span>Jobs checked: <i>${esc(ago(f.meta.at))}</i></span>` + (f.pending ? `<span><i>${f.pending}</i> new roles waiting to be scored</span>` : '') +
     Object.entries(src).map(([n, s]) => s.ok ? `<span>${esc(n)} <i class="ok">✓ ${s.count}</i></span>` : `<span title="${esc(s.err)}">${esc(n)} <i class="bad">✕</i></span>`).join('') + '<span>Daily run ~7am</span>';
   $('matchGrid').innerHTML = jobs.length ? `<div class="grid">${jobs.map(matchCard).join('')}</div>` :
-    `<div class="empty">${syncing ? 'Looking for roles that fit you…' : f.pending ? `${f.pending} new role${f.pending > 1 ? 's are' : ' is'} still waiting to be scored. Tap <b>Check now</b> to continue.` : 'No strong matches right now. Radar checks again every morning; you can also lower the bar with the slider.'}</div>`;
+    `<div class="empty">${syncing ? 'Looking for roles that fit you…' : f.pending ? `${f.pending} new role${f.pending > 1 ? 's are' : ' is'} still waiting to be scored. Tap <b>Check now</b> to continue.` : 'No strong matches right now. Radar checks again every morning; or choose <b>Worth a look</b> to see near-misses.'}</div>`;
 }
-$('thresh').addEventListener('input', () => { $('threshVal').textContent = $('thresh').value; renderMatches() });
-$('thresh').addEventListener('change', async () => {
-  const settings = {...JR.me.settings, threshold: +$('thresh').value};
-  try{ const r = await api('me', {action:'settings', settings}); JR.me.settings = r.settings; await loadFeed(); renderMatches() }catch(e){ toast(e.message) }
+// Match level: Best fits (85+), Strong (75+), Worth a look (60+). Also sets which matches the morning run drafts for.
+const fitLevel = () => { const t = +(JR.me.settings.threshold || 75); return t >= 85 ? 85 : t >= 75 ? 75 : 60 };
+$('fitSeg').addEventListener('click', async e => {
+  const b = e.target.closest('button[data-th]'); if(!b) return;
+  const prev = JR.me.settings;
+  JR.me.settings = {...prev, threshold: +b.dataset.th}; renderMatches();
+  try{ const r = await api('me', {action:'settings', settings: JR.me.settings}); JR.me.settings = r.settings }catch(err){ JR.me.settings = prev; renderMatches(); toast(err.message) }
 });
 $('syncBtn').addEventListener('click', () => sync(true));
 

@@ -317,7 +317,7 @@ async function processUser(uid, deadline, { draft = true } = {}) {
   const scored = await scoreFor(uid, u, cands, deadline);
   const drafted = [];
   if (draft) {
-    const strong = cands.filter(j => { const m = u.matches[j.key]; return m && m.pv === u.pv && m.score >= u.settings.threshold && !u.apps[j.key]; })
+    const strong = cands.filter(j => { const m = u.matches[j.key]; return m && m.pv === u.pv && m.score >= Math.max(75, u.settings.threshold) && !u.apps[j.key]; })
       .sort((a, b) => u.matches[b.key].score - u.matches[a.key].score).slice(0, Math.max(0, Math.min(5, +u.settings.autoDraft || 0)));
     for (const j of strong) {
       if (Date.now() > deadline - 15000) break;
@@ -337,7 +337,7 @@ async function feed(uid) {
   const [u, pool, meta, boards] = await Promise.all([loadUser(uid), db.hgetall('pool'), db.get('pool:meta'), db.get('pool:boards')]);
   const cands = candidates(pool, u);
   const pending = cands.filter(j => !(u.matches[j.key] && u.matches[j.key].pv === u.pv)).length;
-  const strong = cands.filter(j => { const m = u.matches[j.key]; return m && m.pv === u.pv && m.score >= u.settings.threshold; })
+  const strong = cands.filter(j => { const m = u.matches[j.key]; return m && m.pv === u.pv && m.score >= Math.min(60, u.settings.threshold); })   // client filters by the chosen level and counts each one
     .map(j => ({ key: j.key, title: j.title, company: j.company, url: j.url, location: j.location, elig: j.elig, type: j.type, pay: j.pay, monthly: j.monthly, ads: j.ads, age: j.age, re: j.re, sources: j.sources, snippet: String(j.text || '').slice(0, 220), match: u.matches[j.key], app: u.apps[j.key] ? { status: u.apps[j.key].status, method: u.apps[j.key].method } : null }))
     .sort((a, b) => b.match.score - a.match.score || b.ads[b.ads.length - 1].localeCompare(a.ads[a.ads.length - 1]));
   const apps = Object.values(u.apps).sort((a, b) => (b.sentAt || b.createdAt) - (a.sentAt || a.createdAt));
