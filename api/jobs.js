@@ -11,9 +11,13 @@ module.exports = async (req, res) => {
       const body = await readJson(req).catch(() => ({}));
       if (body.action === 'sync') {
         const deadline = Date.now() + 50000;
+        const t0 = Date.now();
         const meta = await refreshPool({ force: !!body.force });
+        // If this pass had to fetch fresh listings, return them straight away so the person sees roles being scored;
+        // the client calls again to score.
+        if (Date.now() - t0 > 4000) return res.status(200).json({ ...(await feed(user.uid)), ran: { scored: 0, drafted: 0, poolAt: meta.at, refreshed: true } });
         const r = await processUser(user.uid, deadline, { draft: body.draft !== false });
-        return res.status(200).json({ ...(await feed(user.uid)), ran: { scored: r.scored, drafted: r.drafted.length, poolAt: meta.at } });
+        return res.status(200).json({ ...(await feed(user.uid)), ran: { scored: r.scored, drafted: r.drafted.length, poolAt: meta.at, error: r.error } });
       }
       return res.status(400).json({ error: 'Unknown action' });
     }

@@ -1,5 +1,5 @@
 // Job pool (shared by everyone), per-person filtering, scoring and application drafting.
-const { db, claude, extractJson, MODELS, useQuota, today, spendDraft, refundDraft } = require('./_lib');
+const { db, claude, extractJson, MODELS, useQuota, today, pipe, spendDraft, refundDraft } = require('./_lib');
 
 const DAY = 864e5, WINDOW = 10, POOL_TTL = 6 * 3600e3;
 
@@ -259,26 +259,30 @@ function candidates(pool, u) {
 }
 async function scoreFor(uid, u, jobs, deadline) {
   const todo = jobs.filter(j => !(u.matches[j.key] && u.matches[j.key].pv === u.pv)).slice(0, 60);
-  let n = 0;
+  let n = 0, lastErr = '';
   for (let i = 0; i < todo.length && Date.now() < deadline - 12000; i += 20) {
     const batch = todo.slice(i, i + 20);
-    if (!(await useQuota(uid, 'score', batch.length))) break;
-    const text = await claude({
+    if (!(await useQuota(uid, 'score', batch.length))) { lastErr = 'Daily scoring limit reached; Radar continues tomorrow morning.'; break; }
+    // Short ids: the model echoes "j3" reliably; long company|title keys sometimes come back altered and get lost.
+    const idOf = new Map(batch.map((j, k) => ['j' + (k + 1), j.key]));
+    let text = '';
+    try { text = await claude({
       model: MODELS.match(),
       system: `You are a strict, honest recruiter. Score how well each job fits the candidate (0-100).
 90+: near-perfect fit on role, seniority, skills and work type. 75-89: strong fit, small gaps. 50-74: stretch. <50: poor fit.
 Penalise: different role family, seniority mismatch, missing core skills, pay below their minimum, location rules that exclude the candidate's country (${u.profile.country || 'unknown'}), work types they ruled out, dealbreakers.
 "why": max 18 words, specific (name the matching skill/project). "gaps": max 14 words or "".`,
-      messages: [{ role: 'user', content: `Candidate profile:\n${JSON.stringify(u.profile).slice(0, 6000)}\n\nJobs:\n${JSON.stringify(batch.map(j => ({ id: j.key, title: j.title, company: j.company, location: j.location, type: j.type, pay: j.monthly ? `~$${j.monthly}/month` : 'not stated', snippet: String(j.text || '').slice(0, 900) })))}\n\nReturn ONLY a JSON array: [{"id":"...","score":0,"why":"...","gaps":"..."}], one per job.` }],
-      maxTokens: 2500
-    });
+      messages: [{ role: 'user', content: `Candidate profile:\n${JSON.stringify(u.profile).slice(0, 6000)}\n\nJobs:\n${JSON.stringify(batch.map(j => ({ id: j.key, title: j.title, company: j.company, location: j.location, type: j.type, pay: j.monthly ? `~$${j.monthly}/month` : 'not stated', snippet: String(j.text || '').slice(0, 900) })).map((x, k) => ({ ...x, id: 'j' + (k + 1) })))}\n\nReturn ONLY a JSON array: [{"id":"j1","score":0,"why":"...","gaps":"..."}], one per job, using the ids given.` }],
+      maxTokens: 3000
+    }); } catch (e) { lastErr = e.message; await pipe([['DECRBY', `use:${uid}:score:${today()}`, batch.length]]).catch(() => {}); continue; }
     let arr = extractJson(text);
     if (arr && !Array.isArray(arr) && typeof arr === 'object') arr = Object.values(arr).find(Array.isArray) || null;
-    if (!Array.isArray(arr)) continue;
-    const ids = new Set(batch.map(j => j.key)), out = {};
-    arr.forEach(r => { if (r && ids.has(String(r.id))) out[r.id] = { score: Math.max(0, Math.min(100, Math.round(+r.score || 0))), why: String(r.why || '').slice(0, 200), gaps: String(r.gaps || '').slice(0, 160), pv: u.pv, at: Date.now() }; });
-    Object.assign(u.matches, out); await db.hset('matches:' + uid, out); n += Object.keys(out).length;
+    if (!Array.isArray(arr)) { lastErr = 'Scoring reply was unreadable'; await pipe([['DECRBY', `use:${uid}:score:${today()}`, batch.length]]).catch(() => {}); continue; }
+    const out = {};
+    arr.forEach((r, k) => { const key = r && (idOf.get(String(r.id).trim().toLowerCase()) || (arr.length === batch.length ? batch[k].key : null)); if (key) out[key] = { score: Math.max(0, Math.min(100, Math.round(+r.score || 0))), why: String(r.why || '').slice(0, 200), gaps: String(r.gaps || '').slice(0, 160), pv: u.pv, at: Date.now() }; });
+    if (Object.keys(out).length) { Object.assign(u.matches, out); await db.hset('matches:' + uid, out); n += Object.keys(out).length; }
   }
+  scoreFor.lastErr = n ? '' : lastErr;
   return n;
 }
 
@@ -329,7 +333,7 @@ async function processUser(uid, deadline, { draft = true } = {}) {
     }
   }
   await db.set('lastrun:' + uid, Date.now());
-  return { scored, drafted };
+  return { scored, drafted, error: scoreFor.lastErr || '' };
 }
 
 // What the Matches screen shows: strong matches only, with application status.
@@ -341,7 +345,9 @@ async function feed(uid) {
     .map(j => ({ key: j.key, title: j.title, company: j.company, url: j.url, location: j.location, elig: j.elig, type: j.type, pay: j.pay, monthly: j.monthly, ads: j.ads, age: j.age, re: j.re, sources: j.sources, snippet: String(j.text || '').slice(0, 220), match: u.matches[j.key], app: u.apps[j.key] ? { status: u.apps[j.key].status, method: u.apps[j.key].method } : null }))
     .sort((a, b) => b.match.score - a.match.score || b.ads[b.ads.length - 1].localeCompare(a.ads[a.ads.length - 1]));
   const apps = Object.values(u.apps).sort((a, b) => (b.sentAt || b.createdAt) - (a.sentAt || a.createdAt));
-  return { jobs: strong, pending, apps, meta: meta || {}, boards: boards || {}, threshold: u.settings.threshold, hasProfile: !!u.profile };
+  const waiting = cands.filter(j => !(u.matches[j.key] && u.matches[j.key].pv === u.pv)).slice(0, 24)
+    .map(j => ({ key: j.key, title: j.title, company: j.company, url: j.url, location: j.location, monthly: j.monthly, age: j.age }));
+  return { jobs: strong, pending, waiting, apps, meta: meta || {}, boards: boards || {}, threshold: u.settings.threshold, hasProfile: !!u.profile };
 }
 
 module.exports = { refreshPool, processUser, feed, loadUser, draftFor, candidates, targets, eligibility, monthlyUSD, DEFAULT_BOARDS, today };

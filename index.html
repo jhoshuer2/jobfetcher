@@ -154,6 +154,13 @@ canvas.orb{width:240px;height:240px}
 .score{flex:none;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font:700 15px/1 "Space Grotesk",sans-serif;color:var(--teal);background:conic-gradient(var(--teal) calc(var(--v)*1%),color-mix(in srgb,var(--teal) 18%,transparent) 0);position:relative}
 .score::before{content:"";position:absolute;inset:4px;border-radius:50%;background:var(--teal-soft)}
 .score span{position:relative}
+.card.scoring{opacity:.92}
+.card.scoring .score{background:conic-gradient(var(--teal) 0 25%,color-mix(in srgb,var(--teal) 18%,transparent) 0);animation:spinring 1.1s linear infinite}
+.card.scoring .score::after{content:"";position:absolute;inset:4px;border-radius:50%;background:var(--surface)}
+.card.scoring .wait{color:var(--muted);font-size:14px;margin:0}
+.waiting-head{display:flex;align-items:center;gap:10px;margin:26px 0 12px;font-weight:600;color:var(--muted);font-size:14px}
+@keyframes spinring{to{transform:rotate(1turn)}}
+@media (prefers-reduced-motion:reduce){.card.scoring .score{animation:none}}
 .match p{margin:0;font-size:13px;line-height:1.45}
 .match .gap{color:var(--muted);margin-top:3px}
 .fresh{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}

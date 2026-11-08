@@ -115,6 +115,7 @@ let syncing = false;
 async function loadFeed(){ JR.feed = await api('jobs'); updateBadge(); return JR.feed }
 async function sync(force){
   if(syncing) return; syncing = true;
+  if(JR.feed) renderMatches();
   const btn = $('syncBtn'); btn.disabled = true; btn.classList.add('loading'); $('syncLabel').textContent = 'Checking…';
   $('mMsg').innerHTML = '<p class="msg info">Radar is checking job boards and scoring new roles against your profile. This can take up to a minute.</p>';
   try{
@@ -125,6 +126,7 @@ async function sync(force){
       JR.feed = await api('jobs', {action:'sync', force: !!force && i === 0}, {timeout: 70000});
       updateBadge(); renderMatches();
       if(!JR.feed.pending) break;
+      if(JR.feed.ran && JR.feed.ran.refreshed) continue;
       stuck = JR.feed.ran && JR.feed.ran.scored ? 0 : stuck + 1;
       if(stuck >= 2) break;
     }
@@ -173,8 +175,19 @@ function renderMatches(){
   const src = f.meta.sources || {};
   $('syncbar').innerHTML = `<span>Jobs checked: <i>${esc(ago(f.meta.at))}</i></span>` + (f.pending ? `<span><i>${f.pending}</i> new roles waiting to be scored</span>` : '') +
     Object.entries(src).map(([n, s]) => s.ok ? `<span>${esc(n)} <i class="ok">✓ ${s.count}</i></span>` : `<span title="${esc(s.err)}">${esc(n)} <i class="bad">✕</i></span>`).join('') + '<span>Daily run ~7am</span>';
-  $('matchGrid').innerHTML = jobs.length ? `<div class="grid">${jobs.map(matchCard).join('')}</div>` :
-    `<div class="empty">${syncing ? 'Looking for roles that fit you…' : f.pending ? `${f.pending} new role${f.pending > 1 ? 's are' : ' is'} still waiting to be scored. Tap <b>Check now</b> to continue.` : 'No strong matches right now. Radar checks again every morning; or choose <b>Worth a look</b> to see near-misses.'}</div>`;
+  const waiting = f.waiting || [];
+  const scoringCard = j => `<article class="card scoring" aria-busy="${syncing}">
+    <div class="row"><span class="age">${j.age === 0 ? 'Today' : j.age === 1 ? '1 day ago' : j.age + ' days ago'}</span></div>
+    <div><h3>${esc(j.title)}</h3><div class="co">${esc(j.company)}</div></div>
+    <div class="match"><div class="score"><span></span></div><p class="wait">${syncing ? 'Checking how well this fits you…' : 'Waiting to be scored'}</p></div>
+    <div class="row">${j.monthly ? `<span class="pill pay">≈ $${j.monthly.toLocaleString()}/mo</span>` : ''}<span class="pill">${esc(j.location || 'Remote')}</span></div>
+    <div class="actions"><a class="btn" href="${esc(j.url)}" target="_blank" rel="noopener">Job ↗</a></div>
+  </article>`;
+  const waitBlock = waiting.length ? `<div class="waiting-head">${syncing ? '<span class="spin" style="display:inline-block"></span>' : ''}Being scored · ${f.pending} role${f.pending > 1 ? 's' : ''}${!syncing ? ' · <a href="#" id="scoreMore">Score now</a>' : ''}</div><div class="grid">${waiting.map(scoringCard).join('')}</div>` : '';
+  const err = !syncing && f.ran && f.ran.error && f.pending ? `<p class="msg err">Scoring paused: ${esc(f.ran.error)}</p>` : '';
+  $('matchGrid').innerHTML = (jobs.length ? `<div class="grid">${jobs.map(matchCard).join('')}</div>` :
+    (waiting.length ? '' : `<div class="empty">${syncing ? 'Looking for roles that fit you…' : 'No strong matches right now. Radar checks again every morning, or choose <b>Worth a look</b> to see near-misses.'}</div>`)) + err + waitBlock;
+  const more = $('scoreMore'); if(more) more.onclick = e => { e.preventDefault(); sync(false) };
 }
 // Match level: Best fits (85+), Strong (75+), Worth a look (60+). Also sets which matches the morning run drafts for.
 const fitLevel = () => { const t = +(JR.me.settings.threshold || 75); return t >= 85 ? 85 : t >= 75 ? 75 : 60 };
