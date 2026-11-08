@@ -329,11 +329,17 @@ $('wipe').addEventListener('click', async () => {
 });
 
 /* ---------- theme ---------- */
+const isDark = () => { const r = document.documentElement; return r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches };
+const syncThemeSwitch = () => { const b = $('theme'), d = isDark(); b.classList.toggle('is-dark', d); b.setAttribute('aria-checked', String(d)) };
 $('theme').addEventListener('click', () => {
-  const r = document.documentElement, dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
-  r.dataset.theme = dark ? 'light' : 'dark'; ls.set('jobradar.theme', r.dataset.theme);
+  const r = document.documentElement, b = $('theme'), next = isDark() ? 'light' : 'dark';
+  r.classList.add('theming'); b.classList.remove('moving'); void b.offsetWidth; b.classList.add('moving');
+  b.classList.toggle('is-dark', next === 'dark'); b.setAttribute('aria-checked', String(next === 'dark'));
+  setTimeout(() => { r.dataset.theme = next; ls.set('jobradar.theme', next) }, 120);   // let the knob start moving, then fade the page
+  clearTimeout(b._t); b._t = setTimeout(() => { r.classList.remove('theming'); b.classList.remove('moving') }, 700);
 });
-{ const t = ls.get('jobradar.theme', null); if(t) document.documentElement.dataset.theme = t }
+try{ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', syncThemeSwitch) }catch(e){}
+{ const t = ls.get('jobradar.theme', null); if(t) document.documentElement.dataset.theme = t; syncThemeSwitch() }
 
 /* ---------- boot ---------- */
 JR.route = route;
