@@ -113,6 +113,11 @@ canvas.orb{width:240px;height:240px}
 .end{border:0;border-radius:11px;background:#E5484D;color:#fff;font-weight:600;font-size:13px;padding:0 14px;height:42px;flex:none;white-space:nowrap}
 .call-foot{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:12.5px;color:var(--call-muted)}
 .call-foot button{background:none;border:0;color:var(--call-muted);text-decoration:underline;padding:0;font-size:12.5px}
+.mic-row{display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0}
+.mic-row select{max-width:220px;background:transparent;color:var(--call-muted);border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:3px 6px;font:inherit}
+.mic-row select option{color:#17161B}
+.mic-meter{width:54px;height:6px;border-radius:3px;background:rgba(255,255,255,.14);overflow:hidden;display:inline-block}
+.mic-meter i{display:block;height:100%;width:0;background:var(--glow,#33E0BF);transition:width .08s linear}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:var(--shadow)}
 .panel h2{font:600 22px/1.2 "Space Grotesk",sans-serif;margin:0 0 6px;letter-spacing:-.01em}
 .panel .sub{color:var(--muted);margin:0 0 16px;font-size:14px}
@@ -274,7 +279,7 @@ canvas.orb{width:240px;height:240px}
           <button class="send" id="sendBtn" aria-label="Send"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
           <button class="end" id="endBtn">Finish</button>
         </div>
-        <div class="call-foot"><span id="voiceNote"></span><button id="restartBtn">Start over</button></div>
+        <div class="call-foot"><span class="mic-row"><span id="voiceNote"></span><span class="mic-meter" id="micMeterBar" hidden><i></i></span><select id="micPick" aria-label="Microphone" hidden></select></span><button id="restartBtn">Start over</button></div>
       </div>
     </section>
 

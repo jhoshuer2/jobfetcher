@@ -159,6 +159,42 @@ async function speak(text){
   phase = 'idle';
 }
 
+/* ---------- microphone choice (remembered per browser) ---------- */
+const MIC_KEY = 'radar.mic';
+const savedMic = () => { try{ return localStorage.getItem(MIC_KEY) || '' }catch(e){ return '' } };
+async function openMic(){
+  const base = {echoCancellation:true, noiseSuppression:true, autoGainControl:true};
+  const id = savedMic(); let s;
+  if(id){ try{ s = await navigator.mediaDevices.getUserMedia({audio:{...base, deviceId:{exact:id}}}) }catch(e){ s = null } }
+  s ||= await navigator.mediaDevices.getUserMedia({audio:base});
+  fillMics(s);
+  return s;
+}
+async function fillMics(s){
+  try{
+    const mics = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput' && d.deviceId !== 'communications');
+    const cur = s && s.getAudioTracks()[0] && s.getAudioTracks()[0].getSettings().deviceId;
+    const sel = $('micPick');
+    sel.innerHTML = mics.map((d, i) => `<option value="${esc(d.deviceId)}">${esc((d.label || 'Microphone ' + (i + 1)).replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)$/i, ''))}</option>`).join('');
+    if(cur) sel.value = cur;
+    sel.hidden = mics.length < 2;
+  }catch(e){}
+}
+$('micPick').addEventListener('change', async () => {
+  try{ localStorage.setItem(MIC_KEY, $('micPick').value) }catch(e){}
+  const wasListening = !!rec;
+  stopListening(false);
+  if(stream){ stream.getTracks().forEach(t => t.stop()); stream = null }
+  setStatus('Microphone changed. Tap the mic and talk');
+  if(wasListening) listen();
+});
+function showMeter(on){
+  const bar = $('micMeterBar'); bar.hidden = !on;
+  if(!on) return;
+  const i = bar.firstElementChild;
+  (function tick(){ if(bar.hidden) return; i.style.width = Math.min(100, readLevel('mic') * 900) + '%'; requestAnimationFrame(tick) })();
+}
+
 /* ---------- listening (MediaRecorder → ElevenLabs Scribe) ---------- */
 let stream = null, rec = null, chunks = [], micSrc = null, vadTimer = null, opening = false;
 const pickMime = () => ['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg'].find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || '';
@@ -168,7 +204,7 @@ async function listen(){
   opening = true; unlockAudio();
   try{
     if(stream && !stream.getAudioTracks().some(t => t.readyState === 'live')) stream = null;
-    stream ||= await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true, autoGainControl:true}});
+    if(!stream) stream = await openMic();
     if(ctx && ctx.state === 'suspended') await ctx.resume().catch(() => {});
   }
   catch(e){ opening = false; setStatus('Microphone blocked: allow it, or type instead'); phase = 'idle'; return }
@@ -180,7 +216,7 @@ async function listen(){
   rec = new MediaRecorder(stream, mime ? {mimeType:mime} : undefined); chunks = [];
   rec.ondataavailable = e => e.data.size && chunks.push(e.data);
   rec.start(250);
-  phase = 'listen'; setStatus('Listening… tap the mic when you\'re done'); $('micBtn').classList.add('on');
+  phase = 'listen'; setStatus('Listening… tap the mic when you\'re done'); $('micBtn').classList.add('on'); showMeter(true);
   // voice-activity detection that adapts to the mic: learn the room's noise level, then stop ~1.6s after you stop talking
   let heard = 0, quiet = 0, floor = null, peak = 0; const t0 = Date.now();
   vadTimer = setInterval(() => {
@@ -195,7 +231,7 @@ async function listen(){
   }, 100);
 }
 function stopListening(send, why){
-  clearInterval(vadTimer); vadTimer = null;
+  clearInterval(vadTimer); vadTimer = null; showMeter(false);
   $('micBtn').classList.remove('on');
   try{ micSrc && micSrc.disconnect() }catch(e){}
   if(!rec) return;
@@ -203,7 +239,8 @@ function stopListening(send, why){
   r.onstop = async () => {
     if(!send){ return }
     const blob = new Blob(chunks, {type: r.mimeType || 'audio/webm'});
-    const noMic = 'I can\'t hear your microphone. Check it isn\'t muted and the right mic is selected in your browser, or type instead.';
+    const many = !$('micPick').hidden;
+    const noMic = many ? 'I can\'t hear that microphone. Pick another one below, then tap the mic.' : 'I can\'t hear your microphone. Check it isn\'t muted or in use by another app, or type instead.';
     if(blob.size < 2000){ setStatus(why === 'silent' ? noMic : 'Didn\'t catch that. Tap the mic and try again'); return }
     setStatus('Transcribing…'); phase = 'think';
     try{
