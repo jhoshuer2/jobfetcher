@@ -63,11 +63,22 @@ function redrawTranscript(){ tr.innerHTML = ''; S.messages.forEach(m => addLine(
 function setStatus(t){ $('status').textContent = t }
 function qCount(){ const n = S.messages.filter(m => m.role === 'assistant').length; $('qCount').textContent = n ? `Question ${n}` : '' }
 
+// Voice / Type switch in the call footer: change how you answer at any point
+function syncMode(){
+  document.querySelectorAll('.modesw button').forEach(b => b.setAttribute('aria-checked', String((b.dataset.mode === 'voice') === !!S.voice)));
+  $('micBtn').hidden = !S.voice;
+  if(!S.voice){ $('micPick').hidden = true; $('micMeterBar').hidden = true }
+}
+document.querySelectorAll('.modesw button').forEach(b => b.addEventListener('click', () => {
+  const voice = b.dataset.mode === 'voice'; if(voice === !!S.voice) return;
+  S.voice = voice; persist(); $('mode').value = voice ? 'voice' : 'text';
+  if(!voice){ stopListening(false); stopSpeaking(); syncMode(); if(phase !== 'think') setStatus('Type your answer below'); $('typeBox').focus() }
+  else { syncMode(); try{ unlockAudio() }catch(e){} if(phase !== 'think') setStatus('Tap the mic to answer') }
+}));
 function enterCall(fresh){
   document.querySelectorAll('.hiName').forEach(el => el.textContent = firstName());
   redrawTranscript(); qCount(); step('call'); startOrb();
-  $('voiceNote').textContent = S.voice ? 'Voice on' : 'Typing mode';
-  $('micBtn').hidden = !S.voice;
+  syncMode();
   if(fresh || !S.messages.length) think();
   else { setStatus(S.voice ? 'Tap the mic to continue' : 'Type to continue') }
 }
