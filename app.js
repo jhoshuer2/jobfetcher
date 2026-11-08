@@ -117,7 +117,7 @@ async function sync(force){
   if(syncing) return; syncing = true;
   document.body.classList.add('searching');
   if(JR.feed) renderMatches();
-  const btn = $('syncBtn'); btn.disabled = true; btn.classList.add('loading'); $('syncLabel').textContent = 'Checking…';
+  const btn = $('syncBtn'); btn.disabled = true; btn.classList.add('loading'); $('syncLabel').textContent = 'Checking…'; btn.title = 'Checking for new roles…';
   $('mMsg').innerHTML = '<p class="msg info">Radar is checking job boards and scoring new roles against your profile. This can take up to a minute.</p>';
   try{
     // A pass can spend most of its time refreshing job boards and score nothing; keep going while roles are waiting,
@@ -134,7 +134,7 @@ async function sync(force){
     if(JR.feed.ran && JR.feed.ran.drafted) refreshBalance();
     $('mMsg').innerHTML = JR.feed.ran && JR.feed.ran.drafted ? `<p class="msg info">${JR.feed.ran.drafted} new application${JR.feed.ran.drafted > 1 ? 's' : ''} drafted. <a href="#review">Review now</a></p>` : '';
   }catch(e){ $('mMsg').innerHTML = `<p class="msg err">${esc(e.message)}</p>` }
-  finally{ syncing = false; document.body.classList.remove('searching'); btn.disabled = false; btn.classList.remove('loading'); $('syncLabel').textContent = 'Check now'; if(JR.feed) renderMatches() }
+  finally{ syncing = false; document.body.classList.remove('searching'); btn.disabled = false; btn.classList.remove('loading'); $('syncLabel').textContent = 'Check now'; btn.title = 'Check for new roles now'; if(JR.feed) renderMatches() }
 }
 async function showMatches(){
   if(!JR.feed){ $('matchGrid').innerHTML = '<div class="empty">Loading your matches…</div>'; try{ await loadFeed() }catch(e){ $('mMsg').innerHTML = `<p class="msg err">${esc(e.message)}</p>`; return } }
@@ -142,53 +142,73 @@ async function showMatches(){
   const stale = !JR.feed.meta.at || Date.now() - JR.feed.meta.at > 6*3600e3;
   if(stale || JR.feed.pending) sync();
 }
+// Icons (stroke, currentColor)
+const I = {
+  ext: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/></svg>',
+  x: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  pin: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>',
+  cash: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg>',
+  clock: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+};
+// A soft, stable colour per company for its monogram tile
+const MONO = [['#E2F3E9','#175236'],['#E4ECFF','#2857C2'],['#FBF1DC','#8A6217'],['#FCE9DF','#B8451A'],['#EAF2DF','#4E6B2B'],['#ECEAE5','#47453F']];
+const mono = name => { const n = String(name || '?').trim(); let h = 0; for(const c of n) h = (h * 31 + c.charCodeAt(0)) >>> 0; const [bg, fg] = MONO[h % MONO.length];
+  return `<span class="mono" style="background:${bg};color:${fg}" aria-hidden="true">${esc(n.replace(/[^A-Za-z0-9]/g, '').charAt(0).toUpperCase() || '?')}</span>` };
+const shortLoc = l => { const t = String(l || '').trim(); return !t ? 'Remote' : /anywhere|worldwide/i.test(t) ? 'Worldwide' : t.length > 26 ? t.slice(0, 24) + '…' : t };
 function matchCard(j){
-  const left = 10 - j.age, pct = Math.max(0, Math.min(100, left * 10));
-  const pay = j.monthly ? `<span class="pill pay">≈ $${j.monthly.toLocaleString()}/mo</span>` : `<span class="pill nopay">Pay not listed</span>`;
-  const st = j.app ? (j.app.method === 'email' ? '<span class="pill can">Draft ready · Radar can send</span>' : '<span class="pill you">Pack ready · you apply</span>') : '';
-  const ageTxt = j.age === 0 ? 'Today' : j.age === 1 ? '1 day ago' : j.age + ' days ago';
-  return `<article class="card">
-    <div class="row">${j.age <= 1 ? '<span class="pill new">New</span>' : ''}${j.re ? '<span class="pill re">Re-advertised</span>' : ''}${st}<span class="age">${ageTxt}</span></div>
-    <div><h3>${esc(j.title)}</h3><div class="co">${esc(j.company)}</div></div>
-    <div class="match"><div class="score" style="--v:${j.match.score}"><span>${j.match.score}</span></div><div><p>${esc(j.match.why)}</p>${j.match.gaps ? `<p class="gap">Gap: ${esc(j.match.gaps)}</p>` : ''}</div></div>
-    <div class="row">${pay}${j.elig === 'unclear' ? '<span class="pill">Check location</span>' : ''}</div>
-    <dl class="meta"><dt>Where</dt><dd>${esc(j.location || 'Not stated')}</dd>${j.type ? `<dt>Type</dt><dd>${esc(j.type)}</dd>` : ''}<dt>Posted</dt><dd>${j.ads.map(fmtDate).join(' → ')} · ${esc(j.sources.join(', '))}</dd></dl>
-    <div class="fresh"><div class="bar"><i class="${left <= 3 ? 'warn' : ''}" style="width:${pct}%"></i></div>${left <= 0 ? 'Leaves tomorrow' : 'Leaves in ' + left + (left === 1 ? ' day' : ' days')}</div>
-    <div class="actions">
+  const left = Math.max(0, 10 - j.age);
+  const fresh = j.age <= 1 ? '<span class="tag new">New</span>' : j.re ? '<span class="tag">Re-posted</span>' : '';
+  const pay = j.monthly ? `<span class="tag money">${I.cash}$${j.monthly.toLocaleString()}/mo</span>` : '';
+  const ready = j.app ? `<span class="tag ready">${j.app.method === 'email' ? 'Draft ready' : 'Pack ready'}</span>` : '';
+  const ends = left <= 3 ? `<span class="tag warn">${I.clock}${left <= 1 ? 'Closes soon' : left + ' days left'}</span>` : '';
+  const elig = j.elig === 'unclear' ? '<span class="tag warn">Check location</span>' : '';
+  return `<article class="jcard">
+    <div class="jtop">${mono(j.company)}<div class="jtitle"><h3>${esc(j.title)}</h3><p>${esc(j.company)} · ${esc(shortLoc(j.location))}</p></div>
+      <div class="ring" style="--v:${j.match.score}" title="Fit score ${j.match.score}/100"><span>${j.match.score}</span></div></div>
+    <p class="why">${esc(j.match.why)}${j.match.gaps ? `<small>Gap: ${esc(j.match.gaps)}</small>` : ''}</p>
+    <div class="tags">${fresh}${pay}${ready}${ends}${elig}</div>
+    <div class="jfoot">
       ${j.app ? `<a class="btn teal" href="#review" data-focus="${esc(j.key)}">Review application</a>` : `<button class="btn teal" data-draft="${esc(j.key)}" title="Uses 1 credit"><span class="spin"></span>Prepare application</button>`}
-      <a class="btn" href="${esc(j.url)}" target="_blank" rel="noopener">Job ↗</a>
-      <button class="btn ghost" data-skip="${esc(j.key)}" title="Not for me, don't show again">Pass</button>
+      <a class="ibtn" href="${esc(j.url)}" target="_blank" rel="noopener" aria-label="Open the job post" title="Open the job post">${I.ext}</a>
+      <button class="ibtn" data-skip="${esc(j.key)}" aria-label="Pass on this role" title="Not for me, don't show again">${I.x}</button>
     </div>
   </article>`;
 }
+const markSvg = (blip = true) => `<svg class="mark" viewBox="110 150 290 280" aria-hidden="true"><g transform="translate(-24 0)"><g fill="currentColor"><rect x="134" y="168" width="66" height="248"/><path d="M188.7 168.3A216 216 0 0 1 365.5 245.2L314.9 287.6A150 150 0 0 0 192.1 234.2Z"/></g><circle ${blip ? 'class="blip" ' : ''}cx="372" cy="321.4" r="33" fill="#7FB83A"/></g></svg>`;
 function renderMatches(){
   const f = JR.feed; if(!f) return;
   const p = JR.profile() || {};
-  $('mTitle').textContent = p.name ? `${p.name.split(' ')[0]}, here are your matches` : 'Your matches';
-  $('mSub').textContent = `${(p.roles || []).slice(0, 3).join(' · ') || 'Roles from your interview'} · ${p.country || ''}${p.minMonthlyUSD ? ' · $' + Number(p.minMonthlyUSD).toLocaleString() + '+/month' : ''}. Only roles that clearly fit; anything you've applied to or passed on won't come back.`;
+  const first = p.name ? p.name.split(' ')[0] : '';
+  $('mTitle').textContent = first ? `${first}'s matches` : 'Your matches';
+  // "Product, UX & UI design roles" from the interview's roles
+  const raw = (p.roles || []).slice(0, 3), allDesign = raw.length && raw.every(r => /designer$/i.test(r.trim()));
+  const parts = allDesign ? raw.map(r => r.trim().replace(/\s*designer$/i, '')) : raw;
+  const list = parts.length > 1 ? parts.slice(0, -1).join(', ') + ' & ' + parts[parts.length - 1] : (parts[0] || '');
+  $('mSub').textContent = list ? (allDesign ? list + ' design' : list) + (p.minMonthlyUSD ? ', $' + (p.minMonthlyUSD >= 1000 ? +(p.minMonthlyUSD / 1000).toFixed(1) + 'k' : p.minMonthlyUSD) + '+' : '') : 'for your next role';
   const th = fitLevel();
   document.querySelectorAll('#fitSeg button').forEach(b => { b.setAttribute('aria-checked', String(+b.dataset.th === th)); b.querySelector('i').textContent = f.jobs.filter(j => j.match.score >= +b.dataset.th).length });
   const jobs = f.jobs.filter(j => j.match.score >= th);
-  const review = f.apps.filter(a => a.status === 'review' && a.body !== undefined).length;
-  const done = f.apps.filter(a => a.status === 'sent' || a.status === 'applied').length;
-  $('stats').innerHTML = [[jobs.length, 'Strong matches', '#matches'], [jobs.filter(j => j.age <= 1).length, 'New in 24h', '#matches'], [review, 'Ready to review', '#review'], [done, 'Applied', '#applied']]
-    .map(([n, l, h]) => `<a class="stat" href="${h}"><b>${n}</b><span>${l}</span></a>`).join('');
-  const src = f.meta.sources || {};
-  // One quiet line; the per-board breakdown lives in Settings → Site status (owner only).
-  $('syncbar').innerHTML = `<span>${f.meta.at ? 'Updated ' + esc(ago(f.meta.at)) : 'Not checked yet'} · next check around 7am</span>`;
+  $('syncbar').textContent = `${p.country ? 'Remote roles you can do from ' + p.country + '. ' : ''}${f.meta.at ? 'Updated ' + ago(f.meta.at) : 'Not checked yet'}, next check around 7am.`;
   const waiting = f.waiting || [];
-  const scoringCard = j => `<article class="card scoring" aria-busy="${syncing}">
-    <div class="row"><span class="age">${j.age === 0 ? 'Today' : j.age === 1 ? '1 day ago' : j.age + ' days ago'}</span></div>
-    <div><h3>${esc(j.title)}</h3><div class="co">${esc(j.company)}</div></div>
-    <div class="match"><div class="score"><span></span></div><p class="wait">${syncing ? 'Checking how well this fits you…' : 'Waiting to be scored'}</p></div>
-    <div class="row">${j.monthly ? `<span class="pill pay">≈ $${j.monthly.toLocaleString()}/mo</span>` : ''}<span class="pill">${esc(j.location || 'Remote')}</span></div>
-    <div class="actions"><a class="btn" href="${esc(j.url)}" target="_blank" rel="noopener">Job ↗</a></div>
+  const scoringCard = j => `<article class="jcard scoring" aria-busy="${syncing}">
+    <div class="jtop">${mono(j.company)}<div class="jtitle"><h3>${esc(j.title)}</h3><p>${esc(j.company)} · ${esc(shortLoc(j.location))}</p></div><div class="ring"><span></span></div></div>
+    <p class="why" style="color:var(--muted)">${syncing ? 'Checking how well this fits you…' : 'Waiting to be scored'}</p>
+    <div class="tags">${j.monthly ? `<span class="tag money">${I.cash}$${j.monthly.toLocaleString()}/mo</span>` : ''}</div>
+    <div class="jfoot"><a class="btn" href="${esc(j.url)}" target="_blank" rel="noopener">${I.ext} View post</a></div>
   </article>`;
-  const waitBlock = waiting.length ? `<div class="waiting-head">${syncing ? '<span class="spin" style="display:inline-block"></span>' : ''}Being scored · ${f.pending} role${f.pending > 1 ? 's' : ''}${!syncing ? ' · <a href="#" id="scoreMore">Score now</a>' : ''}</div><div class="grid">${waiting.map(scoringCard).join('')}</div>` : '';
+  const waitBlock = waiting.length ? `<div class="jsec">Being scored · ${f.pending}${!syncing ? ' <a href="#" id="scoreMore">Score now</a>' : ''}</div><div class="jgrid">${waiting.map(scoringCard).join('')}</div>` : '';
   const err = !syncing && f.ran && f.ran.error && f.pending ? `<p class="msg err">Scoring paused: ${esc(f.ran.error)}</p>` : '';
-  $('matchGrid').innerHTML = (jobs.length ? `<div class="grid">${jobs.map(matchCard).join('')}</div>` :
-    (waiting.length ? '' : `<div class="empty">${syncing ? 'Looking for roles that fit you…' : 'No strong matches right now. Radar checks again every morning, or choose <b>Worth a look</b> to see near-misses.'}</div>`)) + err + waitBlock;
+  const wider = f.jobs.filter(j => j.match.score >= 60).length;
+  let zero = '';
+  if(!jobs.length && !waiting.length){
+    zero = syncing
+      ? `<div class="zero">${markSvg()}<h2>Looking for roles that fit you</h2><p>Radar is checking job boards and scoring new roles against your interview. This takes up to a minute.</p></div>`
+      : `<div class="zero">${markSvg(false)}<h2>Nothing ${th >= 85 ? 'near-perfect' : 'strong'} yet</h2><p>Radar checks again every morning and only shows roles that clearly fit.${th > 60 && wider ? ` ${wider} near-miss${wider > 1 ? 'es are' : ' is'} waiting.` : ''}</p>${th > 60 && wider ? `<button class="btn" id="zeroWider">Show near-misses</button>` : `<button class="btn teal" id="zeroCheck">Check now</button>`}</div>`;
+  }
+  $('matchGrid').innerHTML = (jobs.length ? `<div class="jgrid">${jobs.map(matchCard).join('')}</div>` : zero) + err + waitBlock;
   const more = $('scoreMore'); if(more) more.onclick = e => { e.preventDefault(); sync(false) };
+  const zw = $('zeroWider'); if(zw) zw.onclick = () => document.querySelector('#fitSeg [data-th="60"]').click();
+  const zc = $('zeroCheck'); if(zc) zc.onclick = () => sync(true);
 }
 // Match level: Best fits (85+), Strong (75+), Worth a look (60+). Also sets which matches the morning run drafts for.
 const fitLevel = () => { const t = +(JR.me.settings.threshold || 75); return t >= 85 ? 85 : t >= 75 ? 75 : 60 };
