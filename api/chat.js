@@ -96,14 +96,16 @@ module.exports = async (req, res) => {
     if (mode === 'profile') {
       const transcript = (Array.isArray(body.messages) ? body.messages : []).slice(-60)
         .map(m => `${m.role === 'assistant' ? 'Radar' : 'Candidate'}: ${clip(m.content, 3000)}`).join('\n');
-      const text = await claude({
-        model: MODELS.chat(),
-        system: 'You turn interviews into accurate candidate profiles for job matching. Only use what the brief and transcript support; leave fields empty rather than guessing. minMonthlyUSD defaults to 1000 if not stated.',
-        messages: [{ role: 'user', content: `Brief:\n"""${clip(body.brief, 4000)}"""\n\nInterview:\n"""${transcript}"""\n\nReturn ONLY JSON in this shape:\n${PROFILE_SHAPE}` }],
-        maxTokens: 1500
-      });
-      const profile = extractJson(text);
-      if (!profile || typeof profile !== 'object') return res.status(502).json({ error: 'Could not build profile, try again' });
+      const system = 'You turn interviews into accurate candidate profiles for job matching. Only use what the brief and transcript support; leave fields empty rather than guessing. minMonthlyUSD defaults to 1000 if not stated. ' +
+        'Dealbreakers must be about the job itself (pay, workload, culture, growth, benefits, turnover, hours, contract type). If the candidate excludes employers by nationality, ethnicity or another personal trait, record only the job-quality reasons they gave, not the group. Keep every string short.';
+      const ask = `Brief:\n"""${clip(body.brief, 4000)}"""\n\nInterview:\n"""${transcript}"""\n\nReturn ONLY JSON in this shape:\n${PROFILE_SHAPE}`;
+      let profile = null;
+      for (let attempt = 0; attempt < 2 && !profile; attempt++) {
+        const text = await claude({ model: MODELS.chat(), system, messages: [{ role: 'user', content: attempt ? ask + '\n\nYour last reply was not valid JSON. Reply with the JSON object only, nothing before or after it.' : ask }], maxTokens: 3000 }).catch(() => '');
+        const j = extractJson(text);
+        if (j && typeof j === 'object' && !Array.isArray(j)) profile = j;
+      }
+      if (!profile) return res.status(502).json({ error: 'Radar couldn\'t put your profile together just now. Tap Finish again in a moment.' });
       return res.status(200).json({ profile });
     }
 

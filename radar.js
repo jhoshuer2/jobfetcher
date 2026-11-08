@@ -317,7 +317,7 @@ async function finish(){
     await JR.setProfile(profile);
     S.done = true; persist();
     renderProfile(profile); step('profile');
-  }catch(e){ setStatus('Couldn\'t build the profile: ' + e.message) }
+  }catch(e){ setStatus(e.message || 'Couldn\'t build your profile. Tap Finish again.') }
   finally{ $('endBtn').disabled = false; phase = 'idle' }
 }
 const FIELDS = [
