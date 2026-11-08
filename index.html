@@ -55,6 +55,11 @@ input,textarea,select{font:inherit;color:inherit}
 .site-head{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:saturate(1.4) blur(10px);-webkit-backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid var(--line)}
 .topbar{max-width:1180px;margin:0 auto;padding:0 16px;height:64px;display:flex;align-items:center;gap:10px}
 .head-gap{flex:1}
+/* the blip in the logo pulses while Radar is searching */
+.logo-mark .blip{transform-box:fill-box;transform-origin:center}
+body.searching .logo-mark .blip{animation:blip 1.2s ease-in-out infinite}
+@keyframes blip{50%{transform:scale(.55);opacity:.55}}
+@media (prefers-reduced-motion:reduce){body.searching .logo-mark .blip{animation:none}}
 .logo{display:flex;align-items:center;gap:10px;font:600 19px/1 Archivo,ui-sans-serif,system-ui,sans-serif;letter-spacing:-.025em;text-decoration:none;margin-right:14px}
 .pulse{width:10px;height:10px;border-radius:50%;background:var(--glow);box-shadow:0 0 10px var(--glow)}
 .nav{display:flex;gap:2px;align-items:center}
@@ -214,7 +219,7 @@ canvas.orb{width:240px;height:240px}
 </head>
 <body>
 <header class="site-head"><div class="topbar">
-    <a class="logo" href="#radar"><img src="/assets/radar-logo.svg" width="30" height="30" alt="" style="border-radius:8px">Radar</a>
+    <a class="logo" href="#radar"><svg class="logo-mark" viewBox="0 0 512 512" width="30" height="30" aria-hidden="true"><rect width="512" height="512" rx="116" fill="#1C1B19"/><g transform="translate(-24 0)"><g fill="#F4F3EE"><rect x="134" y="168" width="66" height="248"/><path d="M188.7 168.3A216 216 0 0 1 365.5 245.2L314.9 287.6A150 150 0 0 0 192.1 234.2Z"/></g><circle class="blip" cx="372" cy="321.4" r="33" fill="#C9F27A"/></g></svg>Radar</a>
     <nav class="nav" id="nav" aria-label="Sections" hidden>
       <a href="#radar" data-view="radar">Radar</a>
       <a href="#matches" data-view="matches">Matches</a>

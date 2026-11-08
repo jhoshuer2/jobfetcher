@@ -115,6 +115,7 @@ let syncing = false;
 async function loadFeed(){ JR.feed = await api('jobs'); updateBadge(); return JR.feed }
 async function sync(force){
   if(syncing) return; syncing = true;
+  document.body.classList.add('searching');
   if(JR.feed) renderMatches();
   const btn = $('syncBtn'); btn.disabled = true; btn.classList.add('loading'); $('syncLabel').textContent = 'Checking…';
   $('mMsg').innerHTML = '<p class="msg info">Radar is checking job boards and scoring new roles against your profile. This can take up to a minute.</p>';
@@ -133,7 +134,7 @@ async function sync(force){
     if(JR.feed.ran && JR.feed.ran.drafted) refreshBalance();
     $('mMsg').innerHTML = JR.feed.ran && JR.feed.ran.drafted ? `<p class="msg info">${JR.feed.ran.drafted} new application${JR.feed.ran.drafted > 1 ? 's' : ''} drafted. <a href="#review">Review now</a></p>` : '';
   }catch(e){ $('mMsg').innerHTML = `<p class="msg err">${esc(e.message)}</p>` }
-  finally{ syncing = false; btn.disabled = false; btn.classList.remove('loading'); $('syncLabel').textContent = 'Check now'; if(JR.feed) renderMatches() }
+  finally{ syncing = false; document.body.classList.remove('searching'); btn.disabled = false; btn.classList.remove('loading'); $('syncLabel').textContent = 'Check now'; if(JR.feed) renderMatches() }
 }
 async function showMatches(){
   if(!JR.feed){ $('matchGrid').innerHTML = '<div class="empty">Loading your matches…</div>'; try{ await loadFeed() }catch(e){ $('mMsg').innerHTML = `<p class="msg err">${esc(e.message)}</p>`; return } }
