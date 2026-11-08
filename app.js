@@ -173,8 +173,8 @@ function renderMatches(){
   $('stats').innerHTML = [[jobs.length, 'Strong matches', '#matches'], [jobs.filter(j => j.age <= 1).length, 'New in 24h', '#matches'], [review, 'Ready to review', '#review'], [done, 'Applied', '#applied']]
     .map(([n, l, h]) => `<a class="stat" href="${h}"><b>${n}</b><span>${l}</span></a>`).join('');
   const src = f.meta.sources || {};
-  $('syncbar').innerHTML = `<span>Jobs checked: <i>${esc(ago(f.meta.at))}</i></span>` + (f.pending ? `<span><i>${f.pending}</i> new roles waiting to be scored</span>` : '') +
-    Object.entries(src).map(([n, s]) => s.ok ? `<span>${esc(n)} <i class="ok">✓ ${s.count}</i></span>` : `<span title="${esc(s.err)}">${esc(n)} <i class="bad">✕</i></span>`).join('') + '<span>Daily run ~7am</span>';
+  // One quiet line; the per-board breakdown lives in Settings → Site status (owner only).
+  $('syncbar').innerHTML = `<span>${f.meta.at ? 'Updated ' + esc(ago(f.meta.at)) : 'Not checked yet'} · next check around 7am</span>`;
   const waiting = f.waiting || [];
   const scoringCard = j => `<article class="card scoring" aria-busy="${syncing}">
     <div class="row"><span class="age">${j.age === 0 ? 'Today' : j.age === 1 ? '1 day ago' : j.age + ' days ago'}</span></div>
@@ -293,6 +293,8 @@ async function renderSettings(){
     const h = await (await fetch('/api/health', {cache:'no-store'})).json();
     const li = (ok, t) => `<li>${ok ? '✅' : '⬜'} ${t}</li>`;
     $('health').innerHTML = li(h.signin, 'Google sign-in') + li(h.database, 'Database (Upstash)') + li(h.claude, 'Claude (interview, matching, drafting)') + li(h.voice, 'ElevenLabs voice') + li(h.daily, 'Daily morning run') + li(h.payments, 'Payments (Paystack)') + li(h.owner, 'Owner account (OWNER_EMAILS)') + (h.inviteOnly ? li(true, 'Invite-only (ALLOWED_EMAILS set)') : li(true, 'Open to anyone'));
+    const src = (JR.feed && JR.feed.meta && JR.feed.meta.sources) || {};
+    if(Object.keys(src).length) $('health').innerHTML += `<li style="margin-top:8px;color:var(--muted)">Job boards, last check ${esc(ago(JR.feed.meta.at))}:</li>` + Object.entries(src).map(([n, x]) => li(x.ok, `${esc(n)}${x.ok ? ' · ' + x.count + ' roles' : ' · ' + esc(x.err || 'failed')}`)).join('');
   }catch(e){ $('health').innerHTML = '<li>Couldn\'t check.</li>' }
 }
 $('digest').addEventListener('change', async () => { try{ const r = await api('me', {action:'settings', settings:{...JR.me.settings, digest:$('digest').checked}}); JR.me.settings = r.settings; toast('Saved.') }catch(e){ toast(e.message) } });
