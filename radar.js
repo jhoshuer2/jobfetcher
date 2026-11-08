@@ -58,8 +58,9 @@ function addLine(role, text){
   p.className = 't' + (role === 'user' ? ' me' : '');
   p.innerHTML = `<span class="who">${role === 'user' ? esc(S.name || 'You') : 'Radar'}</span>${esc(text)}`;
   tr.appendChild(p); tr.scrollTop = tr.scrollHeight;
+  if(role !== 'user') $('nowQ').textContent = text;   // the question Radar is asking now, shown in the Radar panel
 }
-function redrawTranscript(){ tr.innerHTML = ''; S.messages.forEach(m => addLine(m.role, m.content)); }
+function redrawTranscript(){ tr.innerHTML = ''; $('nowQ').textContent = ''; S.messages.forEach(m => addLine(m.role, m.content)); }
 function setStatus(t){ $('status').textContent = t }
 // Progress: about 10 questions; the current one blinks, and past 10 it reads "Wrapping up"
 function qCount(){
