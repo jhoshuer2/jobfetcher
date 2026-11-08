@@ -80,7 +80,15 @@ module.exports = async (req, res) => {
       // The API needs the first message to be from the user.
       const messages = [{ role: 'user', content: '(The candidate has joined the call.)' }, ...history];
       if (messages[messages.length - 1].role === 'assistant') messages.push({ role: 'user', content: '(silence — please continue)' });
-      const text = await claude({ model: MODELS.chat(), system: INTERVIEWER(clip(body.brief, 4000), clip(body.name, 60)), messages, maxTokens: 300 });
+      const system = INTERVIEWER(clip(body.brief, 4000), clip(body.name, 60));
+      let text = (await claude({ model: MODELS.chat(), system, messages, maxTokens: 300 })).trim();
+      // Occasionally the model returns nothing (e.g. it declines a sensitive aside). Never hand the candidate an empty turn.
+      if (!text.replace('[[DONE]]', '').trim() && !text.includes('[[DONE]]')) {
+        const last = messages[messages.length - 1];
+        const nudged = [...messages.slice(0, -1), { role: 'user', content: last.content + '\n\n(Interviewer note: acknowledge this briefly and neutrally, then ask your next interview question.)' }];
+        text = (await claude({ model: MODELS.chat(), system, messages: nudged, maxTokens: 300 }).catch(() => '')).trim();
+      }
+      if (!text) text = 'Got it, I\'ve noted that. Let\'s keep going: what kind of team and work would make your next role feel like a real step up?';
       const done = text.includes('[[DONE]]');
       return res.status(200).json({ reply: text.replace('[[DONE]]', '').trim(), done });
     }

@@ -13,7 +13,7 @@ function step(name){
 let loaded = false;
 function show(){
   if(!JR.me) return;
-  if(!loaded){ S = Object.assign(blank(), JR.me.radar || {}); loaded = true }
+  if(!loaded){ S = Object.assign(blank(), JR.me.radar || {}); S.messages = (S.messages || []).filter(m => m && String(m.content || '').trim()); loaded = true }
   $('intakeMsg').innerHTML = '';
   document.querySelectorAll('.hiName').forEach(el => el.textContent = firstName());
   if(JR.profile() && S.done) { renderProfile(JR.profile()); step('profile'); return }
@@ -72,27 +72,36 @@ function enterCall(fresh){
   else { setStatus(S.voice ? 'Tap the mic to continue' : 'Type to continue') }
 }
 
-let busy = false;
+let busy = false, turn = 0;
 async function think(){
   if(busy) return; busy = true;
+  const my = ++turn;
+  stopListening(false);
   setStatus('Thinking…'); phase = 'think';
   try{
     const r = await api('chat', {mode:'interview', brief:S.brief, name:S.name, messages:S.messages});
-    S.messages.push({role:'assistant', content:r.reply}); persist();
-    addLine('assistant', r.reply); qCount();
+    if(my !== turn) return;
+    const reply = String(r.reply || '').trim();
     busy = false;
-    await speak(r.reply);
+    if(reply){ S.messages.push({role:'assistant', content:reply}); persist(); addLine('assistant', reply); qCount(); await speak(reply) }
+    if(my !== turn) return;                       // you answered (typed/pasted) while Radar was talking
     if(r.done) return finish();
+    if(!reply){ phase = 'idle'; setStatus('Radar didn\'t respond. Send your answer again'); return }
     if(S.voice) listen(); else { setStatus('Your turn, type below'); phase = 'idle'; $('typeBox').focus() }
   }catch(e){
+    if(my !== turn) return;
     busy = false; phase = 'idle';
-    setStatus('Something went wrong'); addLine('assistant', '⚠️ ' + e.message);
+    setStatus('Couldn\'t reach Radar. Send your answer again');
   }
 }
 function answer(text){
   text = String(text || '').trim(); if(!text) return;
+  const last = S.messages[S.messages.length - 1];
+  if(last && last.role === 'user' && last.content === text){ if(!busy) think(); return }   // re-sending the same answer: just retry
   S.messages.push({role:'user', content:text}); persist();
-  addLine('user', text); think();
+  addLine('user', text);
+  if(busy){ busy = false; turn++ }                // newer answer replaces the pending one
+  think();
 }
 $('sendBtn').addEventListener('click', () => { stopListening(false); stopSpeaking(); const v = $('typeBox').value; $('typeBox').value = ''; answer(v) });
 $('typeBox').addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); $('sendBtn').click() } });
@@ -134,7 +143,7 @@ function stopSpeaking(){
   if(speakResolve){ const r = speakResolve; speakResolve = null; r() }
 }
 async function speak(text){
-  if(!S.voice) return;
+  if(!S.voice || !String(text || '').trim()) return;
   phase = 'speak'; setStatus('Speaking…'); unlockAudio();
   try{
     const r = await api('tts', {text}, {raw:true, timeout:40000});
