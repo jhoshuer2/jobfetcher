@@ -271,6 +271,44 @@ canvas.orb{width:240px;height:240px}
 #view-matches .msg.info{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:8px 14px;background:var(--surface);border:1px solid var(--line);color:var(--ink-2);margin-bottom:18px}
 #view-matches .msg.info::before{content:"";width:8px;height:8px;border-radius:50%;background:#7FB83A;flex:none}
 #view-matches .msg.info a{color:var(--teal);font-weight:500}
+
+/* ---------- Landing: drifting mesh gradient with film grain (Radar palette) ---------- */
+@property --ax{syntax:'<percentage>';inherits:false;initial-value:18%}
+@property --ay{syntax:'<percentage>';inherits:false;initial-value:22%}
+@property --bx{syntax:'<percentage>';inherits:false;initial-value:82%}
+@property --by{syntax:'<percentage>';inherits:false;initial-value:18%}
+@property --cx{syntax:'<percentage>';inherits:false;initial-value:70%}
+@property --cy{syntax:'<percentage>';inherits:false;initial-value:88%}
+@property --dx{syntax:'<percentage>';inherits:false;initial-value:12%}
+@property --dy{syntax:'<percentage>';inherits:false;initial-value:92%}
+.mesh-hero{position:relative;isolation:isolate;overflow:hidden;border-radius:28px;padding:clamp(28px,5vw,64px);min-height:min(78vh,760px);color:#fff;margin-top:6px}
+.mesh{position:absolute;inset:0;z-index:-1;background:
+  linear-gradient(90deg,rgba(14,32,22,.38) 0%,rgba(14,32,22,.12) 45%,rgba(14,32,22,0) 65%),
+  radial-gradient(42% 55% at var(--ax) var(--ay),#C9F27A 0%,rgba(201,242,122,0) 70%),
+  radial-gradient(48% 60% at var(--bx) var(--by),#5FA8FF 0%,rgba(95,168,255,0) 70%),
+  radial-gradient(55% 65% at var(--cx) var(--cy),#E8B04A 0%,rgba(232,176,74,0) 70%),
+  radial-gradient(60% 70% at var(--dx) var(--dy),#2A8A5A 0%,rgba(42,138,90,0) 72%),
+  linear-gradient(135deg,#1F6B45 0%,#14261B 100%);
+  animation:meshdrift 22s ease-in-out infinite alternate}
+.mesh::after{content:"";position:absolute;inset:-50%;opacity:.42;mix-blend-mode:overlay;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1.1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation:grain 1.2s steps(4) infinite}
+@keyframes meshdrift{
+  0%{--ax:18%;--ay:22%;--bx:82%;--by:18%;--cx:70%;--cy:88%;--dx:12%;--dy:92%}
+  50%{--ax:38%;--ay:40%;--bx:64%;--by:8%;--cx:88%;--cy:62%;--dx:22%;--dy:70%}
+  100%{--ax:10%;--ay:60%;--bx:90%;--by:40%;--cx:52%;--cy:96%;--dx:40%;--dy:88%}}
+@keyframes grain{0%{transform:translate(0,0)}25%{transform:translate(-3%,2%)}50%{transform:translate(2%,-3%)}75%{transform:translate(-2%,-1%)}100%{transform:translate(0,0)}}
+@media (prefers-reduced-motion:reduce){.mesh,.mesh::after{animation:none}}
+@media (max-width:900px){.mesh{background-size:auto}.mesh::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(14,32,22,.32),rgba(14,32,22,0) 60%)}}
+.mesh-hero .radar-copy h1{color:#fff;text-shadow:0 1px 30px rgba(20,38,27,.25)}
+.mesh-hero .radar-copy h1 em{color:#fff;opacity:.72}
+.mesh-hero .radar-copy .lede{color:#fff;opacity:.9}
+.mesh-hero .radar-copy .fine{color:rgba(255,255,255,.78)}
+.mesh-hero .steps.inline li{color:rgba(255,255,255,.88)}
+.mesh-hero .steps b{background:rgba(255,255,255,.18);color:#fff}
+.mesh-hero .gbtn{background:#fff;color:#1C1B19;border-color:transparent;box-shadow:0 10px 30px -12px rgba(0,0,0,.45)}
+.mesh-hero .call{background:rgba(14,13,12,.55);-webkit-backdrop-filter:blur(18px) saturate(1.2);backdrop-filter:blur(18px) saturate(1.2);border:1px solid rgba(255,255,255,.14);box-shadow:0 40px 80px -40px rgba(0,0,0,.6)}
+.mesh-hero .call .transcript{background:rgba(255,255,255,.07)}
 @media (max-width:900px){.radar{grid-template-columns:1fr;gap:24px;min-height:0}}
 @media (max-width:720px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.grid{grid-template-columns:1fr}.two{grid-template-columns:1fr}.end{padding:0 10px}}
 @media (max-width:820px){.site-head{position:static}.topbar{height:auto;flex-wrap:wrap;padding:12px 16px 0;row-gap:6px}.nav{order:5;width:100%;overflow-x:auto;scrollbar-width:none;margin:0 -4px;padding-bottom:8px}.nav::-webkit-scrollbar{display:none}.nav a{padding:7px 10px}}
@@ -296,7 +334,8 @@ canvas.orb{width:240px;height:240px}
   <!-- ============ RADAR ============ -->
   <main id="view-radar">
     <!-- signed out: landing -->
-    <section id="r-landing" class="radar" hidden>
+    <section id="r-landing" class="radar mesh-hero" hidden>
+      <div class="mesh" aria-hidden="true"></div>
       <div class="radar-copy">
         <h1>Meet<br><em>Radar.</em></h1>
         <p class="lede">Talk for 10 minutes. Radar finds remote jobs that fit you and writes the applications.</p>
