@@ -217,15 +217,25 @@ async function listen(){
   rec.ondataavailable = e => e.data.size && chunks.push(e.data);
   rec.start(250);
   phase = 'listen'; setStatus('Listening… tap the mic when you\'re done'); $('micBtn').classList.add('on'); showMeter(true);
-  // voice-activity detection that adapts to the mic: learn the room's noise level, then stop ~1.6s after you stop talking
-  let heard = 0, quiet = 0, floor = null, peak = 0; const t0 = Date.now();
+  // Voice-activity detection that copes with fans and room noise:
+  // - floor: background level; drops fast, creeps up only with steady noise near it (fan, AC)
+  // - voicePeak: how loud you are when you speak (slowly forgets)
+  // You're done after ~1.4s well below your speaking level and close to the background.
+  let heard = 0, quiet = 0, floor = null, voicePeak = 0, sm = 0, peak = 0; const t0 = Date.now();
   vadTimer = setInterval(() => {
-    const l = readLevel('mic'); peak = Math.max(peak, l);
+    const raw = readLevel('mic'); peak = Math.max(peak, raw);
+    sm = sm ? sm * 0.6 + raw * 0.4 : raw;                       // smooth out flicker
+    voicePeak = Math.max(voicePeak * 0.997, sm);
+    if(floor === null || sm < floor) floor = floor === null ? sm : floor * 0.7 + sm * 0.3;
+    else if(sm < floor * 1.8) floor += (sm - floor) * 0.03;      // steady noise creeps the floor up; your voice doesn't
     const secs = (Date.now() - t0) / 1000;
-    if(secs < 0.4){ floor = floor === null ? l : Math.min(floor, l); return }
-    const on = l > Math.max(0.012, (floor || 0) * 3);
-    if(on){ heard += 100; quiet = 0; if(heard === 300) setStatus('Hearing you… tap the mic when you\'re done') } else quiet += 100;
-    if(heard >= 400 && quiet >= 1600) stopListening(true);
+    if(secs < 0.5) return;
+    const talkLine = Math.max(0.012, floor * 2.5, voicePeak * 0.15);
+    if(sm > talkLine){
+      heard += 100; quiet = 0;
+      if(heard === 300) setStatus('Hearing you… tap the mic when you\'re done');
+    } else quiet += 100;
+    if(heard >= 400 && quiet >= 1400) stopListening(true);
     else if(!heard && secs > 20) stopListening(true, peak < 0.003 ? 'silent' : 'quiet');
     else if(secs > 120) stopListening(true);
   }, 100);
