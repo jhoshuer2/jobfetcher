@@ -237,7 +237,12 @@ async function renderReview(){
   if(!JR.feed) try{ await loadFeed() }catch(e){ $('reviewMsg').innerHTML = `<p class="msg err">${esc(e.message)}</p>`; return }
   const apps = JR.feed.apps.filter(a => a.status === 'review' && a.body !== undefined);
   const gmail = JR.me.user.gmailOk, cv = JR.me.cv;
-  $('reviewMsg').innerHTML = !gmail ? '<p class="msg info">Email applications open in your own email, ready to send. Attach your CV before sending. Want one-tap sending with your CV attached automatically? <a href="/api/auth/gmail">Connect Gmail</a></p>' : '';
+  // Only explain Gmail when there's an email application it would help with
+  const hasEmail = apps.some(a => a.method === 'email');
+  $('reviewMsg').innerHTML = !gmail && hasEmail ? `<div class="gmailcard">
+    <span class="gm-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></span>
+    <div class="gm-text"><b>Let Radar send for you</b><span>Connect Gmail and approved applications go out from your address with your CV attached. Until then, each one opens in your email app and you attach your CV yourself.</span></div>
+    <a class="btn teal" href="/api/auth/gmail">Connect Gmail</a></div>` : '';
   $('reviewList').innerHTML = apps.length ? apps.map(a => {
     const m = (JR.feed.jobs.find(j => j.key === a.key) || {}).match;
     const needs = a.needsFromYou && a.needsFromYou.length ? `<div class="needs"><b>Before applying, this job asks for:</b><ul>${a.needsFromYou.map(n => `<li>${esc(n)}</li>`).join('')}</ul></div>` : '';
@@ -258,7 +263,7 @@ async function renderReview(){
       <div class="field"><label>Cover letter <button class="copy" data-copy="coverLetter">Copy</button></label><textarea data-f="coverLetter" style="min-height:200px">${esc(a.coverLetter)}</textarea></div>
       ${(a.answers || []).map(x => `<div class="qa"><button class="copy" data-copytext="${esc(x.a)}">Copy</button><b>${esc(x.q)}</b><p>${esc(x.a)}</p></div>`).join('')}
       <div class="row" style="gap:8px;margin-top:12px"><a class="btn teal" href="${esc(a.job.url)}" target="_blank" rel="noopener">Open application ↗</a><button class="btn" data-mark="applied" data-key="${esc(a.key)}">I applied ✓</button><button class="btn ghost" data-mark="skipped" data-key="${esc(a.key)}">Pass</button></div></div>`;
-  }).join('') : '<div class="empty">Nothing waiting. Radar drafts applications for your strongest matches every morning, or tap "Prepare application" on any match.</div>';
+  }).join('') : `<div class="zero">${markSvg(false)}<h2>Nothing to review</h2><p>Radar drafts applications for your strongest matches each morning. You can also prepare one yourself from any match.</p><a class="btn" href="#matches">Go to matches</a></div>`;
 }
 // save edits when a field loses focus
 document.addEventListener('change', async e => {
