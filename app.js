@@ -319,7 +319,7 @@ window.addEventListener('hashchange', route);
   if(HOSTED){ try{ JR.me = await api('me') }catch(e){ JR.me = null } }
   if(JR.me){
     const initials = (JR.me.user.name || JR.me.user.email || '?').split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
-    const fallback = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36"><rect width="36" height="36" fill="#13A58A"/><text x="18" y="23" font-family="Inter,Arial" font-size="14" font-weight="600" fill="#fff" text-anchor="middle">${initials.replace(/[<&>]/g, '')}</text></svg>`);
+    const fallback = 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36"><rect width="36" height="36" fill="#1F6B45"/><text x="18" y="23" font-family="Inter,Arial" font-size="14" font-weight="600" fill="#fff" text-anchor="middle">${initials.replace(/[<&>]/g, '')}</text></svg>`);
     const img = $('avatar'); img.alt = 'Account: ' + (JR.me.user.name || JR.me.user.email);
     img.onerror = () => { img.onerror = null; img.src = fallback };
     img.src = JR.me.user.picture || fallback;

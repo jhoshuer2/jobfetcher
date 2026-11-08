@@ -278,7 +278,7 @@ function startOrb(id = 'orb'){
   if(orbsOn[id]) return; orbsOn[id] = true;
   const c = $(id), g = c.getContext('2d'), W = c.width, H = c.height;
   const host = c.closest('section');
-  const glow = getComputedStyle(document.documentElement).getPropertyValue('--glow').trim() || '#33E0BF';
+  const glow = getComputedStyle(document.documentElement).getPropertyValue('--glow').trim() || '#C9F27A';
   function frame(t){
     if(!host.hidden && !document.hidden){
       const target = id !== 'orb' ? 0.12 + 0.06*Math.sin(t/600) : (phase === 'speak' || phase === 'listen') ? Math.min(1, readLevel() * 6) : phase === 'think' ? 0.18 + 0.08*Math.sin(t/200) : 0.06;
