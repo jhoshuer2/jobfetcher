@@ -22,7 +22,7 @@ Job sources:
 
 Where people want to work comes from the interview: remote, hybrid and/or on-site, in one or more countries or cities. Remote roles must accept the country they live in; on-site and hybrid roles must be in one of their places. Each person also picks how fresh roles must be (24 hours, 3 days or 10 days). Cards show when a role was posted, which sites list it, and an **Early** tag for roles posted in the last 24 hours on at most 2 sites. Applicant counts aren't available from any of these sources, so "Early" is about timing and reach, not a promise.
 
-Searching runs automatically: every 3 hours from GitHub Actions (`.github/workflows/radar-search.yml`, which needs the repository secret `CRON_SECRET`), the full daily run at ~7am with drafts and summary emails, and whenever someone opens Matches after 2 hours.
+Searching runs automatically: the full daily run at ~7am (Vercel Cron) with drafts and summary emails, whenever someone opens Matches and the last check is over 2 hours old, and every 30 minutes while Matches stays open. Optional: for checks every few hours even when nobody is on the site, point a free scheduler such as cron-job.org at `/api/cron?light=1` with the header `Authorization: Bearer <CRON_SECRET>`.
 
 ## Setup (one time, ~20 minutes)
 
