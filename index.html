@@ -246,6 +246,11 @@ canvas.orb{width:240px;height:240px}
 .tabs button:hover{color:var(--ink)}
 .tabs button i{font-style:normal;font-size:12px;font-weight:600;min-width:20px;height:20px;padding:0 6px;border-radius:99px;display:inline-grid;place-items:center;background:color-mix(in srgb,var(--ink) 7%,transparent)}
 .tabs button[aria-checked="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(20,19,18,.08)}
+.tb-right{display:flex;align-items:center;gap:10px}
+.freshsel{display:inline-flex;align-items:center;gap:8px;height:46px;padding:0 6px 0 16px;border-radius:999px;background:var(--chip);font-size:14px;color:var(--muted)}
+.freshsel select{border:0;background:var(--surface);color:var(--ink);font:500 14px/1 Inter,system-ui,sans-serif;height:36px;padding:0 10px;border-radius:999px;cursor:pointer;box-shadow:0 1px 2px rgba(20,19,18,.08)}
+.tag.early{background:#C9F27A;color:#1C1B19}
+.listed{margin:-6px 0 0;font-size:12.5px;color:var(--muted)}
 .round{width:46px;height:46px;border-radius:50%;border:0;background:var(--chip);color:var(--ink);display:grid;place-items:center;cursor:pointer;transition:background .15s}
 .round:hover{background:color-mix(in srgb,var(--ink) 12%,var(--chip))}
 .round.loading .ico{animation:s 1s linear infinite}
@@ -286,7 +291,7 @@ canvas.orb{width:240px;height:240px}
 .zero .btn{margin-top:8px;height:44px;padding:0 20px}
 .zero .blip{transform-box:fill-box;transform-origin:center;animation:blip 1.6s ease-in-out infinite}
 @media (prefers-reduced-motion:reduce){.zero .blip,.round.loading .ico,.jcard.scoring .ring{animation:none}}
-@media (max-width:720px){.hero2{margin:6px 0 24px}.toolbar{flex-wrap:nowrap}.tabs{flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}.tabs button{padding:9px 12px;font-size:14px}.round{width:44px;height:44px}.jgrid{grid-template-columns:1fr}}
+@media (max-width:720px){.hero2{margin:6px 0 24px}.toolbar{flex-wrap:wrap}.tb-right{width:100%;justify-content:space-between}.tabs{flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}.tabs button{padding:9px 12px;font-size:14px}.round{width:44px;height:44px}.jgrid{grid-template-columns:1fr}}
 :root[data-theme="dark"] .logo-mark .tile{fill:#2E2D2A}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .logo-mark .tile{fill:#2E2D2A}}
 #view-matches .msg.info{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:8px 14px;background:var(--surface);border:1px solid var(--line);color:var(--ink-2);margin-bottom:18px}
@@ -492,7 +497,8 @@ html.theming,html.theming *{transition:background-color .5s ease,color .5s ease,
     </section>
     <div class="toolbar">
       <div class="tabs" id="fitSeg" role="radiogroup" aria-label="Which matches to show"><button type="button" role="radio" data-th="85" title="Score 85 or more: near-perfect fit">Best fits <i></i></button><button type="button" role="radio" data-th="75" title="Score 75 or more: strong fit, small gaps">Strong <i></i></button><button type="button" role="radio" data-th="60" title="Score 60 or more: includes stretch roles">Worth a look <i></i></button></div>
-      <button class="round" id="syncBtn" aria-label="Check for new roles now" title="Check for new roles now"><svg class="ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg><span id="syncLabel" class="sr">Check now</span></button>
+      <div class="tb-right"><label class="freshsel" for="freshSel"><span>Posted within</span><select id="freshSel"><option value="1">24 hours</option><option value="3">3 days</option><option value="10">10 days</option></select></label>
+      <button class="round" id="syncBtn" aria-label="Check for new roles now" title="Check for new roles now"><svg class="ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg><span id="syncLabel" class="sr">Check now</span></button></div>
     </div>
     <div id="mMsg"></div>
     <div id="matchGrid"></div>

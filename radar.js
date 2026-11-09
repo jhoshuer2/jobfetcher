@@ -362,7 +362,7 @@ const FIELDS = [
   ['headline','Headline','text'], ['summary','Summary','area'],
   ['roles','Roles you fit','list'], ['skills','Skills','list'], ['tools','Tools','list'],
   ['seniority','Seniority','select:junior,mid,senior,lead'], ['years','Years of experience','number'],
-  ['country','Country you live in','text'], ['portfolio','Portfolio / links','list'],
+  ['country','Country you live in','text'], ['workModes','Work modes (remote, hybrid, onsite)','list'], ['places','Countries or cities to search','list'], ['freshDays','Only roles posted within','select:1=24 hours,3=3 days,10=10 days'], ['portfolio','Portfolio / links','list'],
   ['workTypes','Open to','list'], ['minMonthlyUSD','Minimum pay (USD / month)','number'], ['hours','Hours & time zone','text'],
   ['strengths','Strengths (with proof)','list'], ['interests','Wants to work on','list'], ['dealbreakers','Dealbreakers','list'], ['keywords','Search keywords','list']
 ];
@@ -374,7 +374,7 @@ function renderProfile(p){
     const style = wide ? ' style="grid-column:1/-1"' : '';
     let input;
     if(type === 'area') input = `<textarea name="${k}">${esc(v(k))}</textarea>`;
-    else if(type.startsWith('select:')) input = `<select name="${k}">${type.slice(7).split(',').map(o => `<option${String(p[k]).toLowerCase() === o ? ' selected' : ''}>${o}</option>`).join('')}</select>`;
+    else if(type.startsWith('select:')) input = `<select name="${k}">${type.slice(7).split(',').map(o => { const [val, lab] = o.split('='); const cur = p[k] ?? (k === 'freshDays' ? 10 : ''); return `<option value="${val}"${String(cur).toLowerCase() === val ? ' selected' : ''}>${lab || val}</option>` }).join('')}</select>`;
     else input = `<input name="${k}" type="${type === 'number' ? 'number' : 'text'}" value="${esc(v(k))}">`;
     return `<div class="field"${style}><label>${label}${type === 'list' ? ' <span class="hint">comma-separated</span>' : ''}</label>${input}</div>`;
   }).join('') + `</div>`;
@@ -387,6 +387,7 @@ function readProfile(){
     else if(type === 'number') p[k] = el.value === '' ? null : Number(el.value);
     else p[k] = el.value.trim();
   });
+  p.freshDays = [1, 3, 10].includes(+p.freshDays) ? +p.freshDays : 10;
   return p;
 }
 $('saveProfile').addEventListener('click', async e => {

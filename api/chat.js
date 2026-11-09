@@ -14,6 +14,9 @@ const PROFILE_SHAPE = `{
   "workTypes": ["full-time","contract","freelance","fractional","advisory","expert calls"],
   "minMonthlyUSD": 1000,
   "country": "country they live in", "timezone": "",
+  "workModes": ["where they'll work: any of remote, hybrid, onsite"],
+  "places": ["countries or cities they want jobs in, e.g. 'Nigeria', 'Lagos, Nigeria', 'South Africa', 'Stockholm, Sweden'; for remote-only, their own country"],
+  "freshDays": 10,
   "email": "contact email if stated", "phone": "", "portfolio": ["links they gave"],
   "hours": "availability / time-zone notes",
   "strengths": ["evidence-backed strengths, each with the proof"],
@@ -22,7 +25,7 @@ const PROFILE_SHAPE = `{
   "keywords": ["search words to find matching jobs"]
 }`;
 
-const INTERVIEWER = (brief, name) => `You are Radar, a warm, sharp career interviewer (in the spirit of an expert-network voice agent). You are speaking out loud with ${name || 'the candidate'}, a professional looking for remote work. Don't assume their field, country or pay: learn them.
+const INTERVIEWER = (brief, name) => `You are Radar, a warm, sharp career interviewer (in the spirit of an expert-network voice agent). You are speaking out loud with ${name || 'the candidate'}, a professional looking for their next role, remote or local. Don't assume their field, country or pay: learn them.
 
 What you already know from their CV and notes:
 """
@@ -30,7 +33,7 @@ ${brief || '(nothing yet — learn it from the conversation)'}
 """
 
 Your job: in about 8–12 questions, understand them deeply enough to match them to full-time roles, contracts, fractional work, advisory, expert calls and research projects.
-Cover, in a natural order: the story behind their best work; one or two projects in depth (their exact role, decisions, trade-offs, results); their core skills and tools; seniority and team experience; the exact roles they want next; the kinds of work they're open to (full-time, contract, fractional, advisory); minimum monthly pay in USD; which country they live in and their time zone; dealbreakers.
+Cover, in a natural order: the story behind their best work; one or two projects in depth (their exact role, decisions, trade-offs, results); their core skills and tools; seniority and team experience; the exact roles they want next; the kinds of work they're open to (full-time, contract, fractional, advisory); minimum monthly pay in USD; which country they live in and their time zone; where they want to work (remote only, or also hybrid/onsite, and in which countries or cities: it can be several); how fresh they want listings (some people only want roles posted in the last 24 hours so they apply early); dealbreakers.
 
 Style rules — this is SPOKEN aloud:
 - Reply in at most 2 short sentences: one brief, specific reflection on what they just said (no generic praise), then ONE question.
@@ -100,7 +103,7 @@ module.exports = async (req, res) => {
       const transcript = (Array.isArray(body.messages) ? body.messages : []).slice(-60)
         .map(m => `${m.role === 'assistant' ? 'Radar' : 'Candidate'}: ${clip(m.content, 3000)}`).join('\n');
       const system = 'You turn interviews into accurate candidate profiles for job matching. Only use what the brief and transcript support; leave fields empty rather than guessing. minMonthlyUSD defaults to 1000 if not stated. ' +
-        'Dealbreakers must be about the job itself (pay, workload, culture, growth, benefits, turnover, hours, contract type). If the candidate excludes employers by nationality, ethnicity or another personal trait, record only the job-quality reasons they gave, not the group. Keep every string short.';
+        'workModes and places come only from what they said; freshDays is 1 if they want only the last 24 hours, 3 for the last few days, else 10. Dealbreakers must be about the job itself (pay, workload, culture, growth, benefits, turnover, hours, contract type). If the candidate excludes employers by nationality, ethnicity or another personal trait, record only the job-quality reasons they gave, not the group. Keep every string short.';
       const ask = `Brief:\n"""${clip(body.brief, 4000)}"""\n\nInterview:\n"""${transcript}"""\n\nReturn ONLY JSON in this shape:\n${PROFILE_SHAPE}`;
       let profile = null;
       for (let attempt = 0; attempt < 2 && !profile; attempt++) {

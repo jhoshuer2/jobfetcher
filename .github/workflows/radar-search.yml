@@ -1,0 +1,20 @@
+# Searches for new roles every 3 hours so fresh listings (some people want only the last 24 hours) show up quickly.
+# Needs one repository secret: CRON_SECRET (the same value as in Vercel). Settings → Secrets and variables → Actions.
+name: Radar search
+on:
+  schedule:
+    - cron: "17 */3 * * *"
+  workflow_dispatch: {}
+jobs:
+  search:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ask Radar to fetch and score new roles
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SITE: ${{ vars.RADAR_URL || 'https://jobfetcher-tau.vercel.app' }}
+        run: |
+          code=$(curl -s -o out.json -w "%{http_code}" --max-time 90 -H "Authorization: Bearer $CRON_SECRET" "$SITE/api/cron?light=1")
+          echo "HTTP $code"; head -c 600 out.json; echo
+          test "$code" = "200"

@@ -1,12 +1,14 @@
-// Daily background run (Vercel Cron). Refreshes the job pool, then scores and drafts for each person,
-// oldest-first, until the time budget runs out. Anyone not reached today is caught up when they open the site.
+// Background runs. Daily (Vercel Cron, ~7am Lagos): refresh the job pool, score, draft and email a summary.
+// Light (?light=1, every few hours from GitHub Actions): refresh the pool and score only, so fresh roles show up within hours.
+// People are processed oldest-first until the time budget runs out; anyone not reached is caught up when they open the site.
 const { db, gmailSend, baseUrl } = require('./_lib');
 const { refreshPool, processUser } = require('./_jobs');
 
 module.exports = async (req, res) => {
   if (!process.env.CRON_SECRET || req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) return res.status(401).json({ error: 'Unauthorized' });
   const deadline = Date.now() + 52000;
-  const report = { pool: null, users: [] };
+  const light = String((req.query || {}).light || '') === '1';
+  const report = { pool: null, users: [], light };
   try {
     report.pool = await refreshPool({ force: true });
     const uids = await db.redis('SMEMBERS', 'users') || [];
@@ -14,9 +16,9 @@ module.exports = async (req, res) => {
     const order = uids.map((u, i) => [u, +last[i] || 0]).sort((a, b) => a[1] - b[1]).map(x => x[0]);
     for (const uid of order) {
       if (Date.now() > deadline - 15000) break;
-      const r = await processUser(uid, deadline);
+      const r = await processUser(uid, deadline, { draft: !light });
       report.users.push({ uid, scored: r.scored, drafted: r.drafted.length });
-      if (r.drafted.length) await digest(uid, r.drafted, baseUrl(req)).catch(() => {});
+      if (!light && r.drafted.length) await digest(uid, r.drafted, baseUrl(req)).catch(() => {});
     }
     return res.status(200).json(report);
   } catch (e) {

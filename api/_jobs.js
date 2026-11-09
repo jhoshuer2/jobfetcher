@@ -1,7 +1,7 @@
 // Job pool (shared by everyone), per-person filtering, scoring and application drafting.
 const { db, claude, extractJson, MODELS, useQuota, today, pipe, spendDraft, refundDraft } = require('./_lib');
 
-const DAY = 864e5, WINDOW = 10, POOL_TTL = 6 * 3600e3;
+const DAY = 864e5, HOUR = 3600e3, WINDOW = 10, POOL_TTL = 2 * HOUR;
 
 /* ---------------- text helpers ---------------- */
 const ENT = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', '#39': "'" };
@@ -84,6 +84,42 @@ function eligibility(job, country) {
   return 'unclear';
 }
 
+/* ---------------- where each person wants to work ---------------- */
+const CC = { nigeria: 'ng', 'south africa': 'za', kenya: 'ke', ghana: 'gh', egypt: 'eg', morocco: 'ma', rwanda: 'rw', uganda: 'ug', tanzania: 'tz', ethiopia: 'et',
+  sweden: 'se', norway: 'no', denmark: 'dk', finland: 'fi', 'united kingdom': 'gb', uk: 'gb', england: 'gb', scotland: 'gb', ireland: 'ie', germany: 'de', france: 'fr', spain: 'es',
+  portugal: 'pt', italy: 'it', netherlands: 'nl', belgium: 'be', austria: 'at', switzerland: 'ch', poland: 'pl', 'united states': 'us', usa: 'us', us: 'us', canada: 'ca',
+  mexico: 'mx', brazil: 'br', india: 'in', singapore: 'sg', australia: 'au', 'new zealand': 'nz', uae: 'ae', 'united arab emirates': 'ae', 'saudi arabia': 'sa', qatar: 'qa' };
+const COUNTRY_OF = Object.fromEntries(Object.entries(CC).map(([n, c]) => [c, n]).reverse());
+function parsePlace(raw, homeCC) {
+  const parts = String(raw || '').split(',').map(x => x.trim().toLowerCase()).filter(Boolean);
+  if (!parts.length) return null;
+  const last = parts[parts.length - 1];
+  if (parts.length === 1 && CC[last]) return { label: raw, city: '', country: last, cc: CC[last] };
+  if (parts.length === 1) return { label: raw, city: last, country: COUNTRY_OF[homeCC] || '', cc: homeCC || '' };
+  return { label: raw, city: parts[0], country: last, cc: CC[last] || homeCC || '' };
+}
+// modes: remote / hybrid / onsite; places: where local (hybrid/onsite) jobs may be; countries: where remote jobs must accept
+function wants(profile) {
+  const home = String(profile.country || 'Nigeria').toLowerCase().trim(), homeCC = CC[home] || '';
+  const modes = [].concat(profile.workModes || []).map(m => String(m).toLowerCase()).map(m => /on-?site|office|in[- ]person/.test(m) ? 'onsite' : /hybrid/.test(m) ? 'hybrid' : /remote/.test(m) ? 'remote' : '').filter(Boolean);
+  const places = [].concat(profile.places && profile.places.length ? profile.places : [profile.country || 'Nigeria']).map(p => parsePlace(p, homeCC)).filter(Boolean).slice(0, 6);
+  const countries = [...new Set([home, ...places.map(p => p.country)].filter(Boolean))];
+  return { modes: modes.length ? [...new Set(modes)] : ['remote'], places, countries, home, homeCC };
+}
+const isRemoteJob = j => j.remote != null ? !!j.remote : !/\b(on-?site|in[- ]office|hybrid)\b/i.test(String(j.location || ''));
+const isHybrid = j => /\bhybrid\b/i.test(String(j.location || '') + ' ' + String(j.type || '') + ' ' + String(j.text || '').slice(0, 1200));
+// Can this person take this job, given where it is and how it's worked?
+function placeFit(job, w) {
+  if (isRemoteJob(job)) {
+    if (!w.modes.includes('remote')) return 'no';
+    return eligibility(job, w.home);   // remote rules are about where the person lives
+  }
+  const mode = isHybrid(job) ? 'hybrid' : 'onsite';
+  if (!w.modes.includes(mode) && !(mode === 'hybrid' && w.modes.includes('onsite'))) return 'no';
+  const loc = (String(job.location || '') + ' ' + (COUNTRY_OF[job.cc] || '')).toLowerCase();
+  return w.places.some(p => p.city ? loc.includes(p.city) : (p.country && (loc.includes(p.country) || (job.cc && job.cc === p.cc)))) ? 'yes' : 'no';
+}
+
 /* ---------------- what each person is looking for ---------------- */
 const GENERIC = new Set(['senior', 'junior', 'lead', 'principal', 'staff', 'head', 'of', 'and', 'the', 'a', 'an', 'remote', 'mid', 'level', 'sr', 'jr', '&', '/', '-', 'i', 'ii', 'iii']);
 function targets(profile) {
@@ -127,29 +163,96 @@ async function fetchBoard(spec) {
   const [ats, slug] = spec.split(':'); const name = niceName(slug);
   if (ats === 'ashby') {
     const d = await getRaw(`https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(slug)}?includeCompensation=true`);
-    return (d.jobs || []).filter(j => remoteOk(j.location, j.isRemote || j.workplaceType === 'Remote')).map(j => ({
+    return (d.jobs || []).map(j => ({
       title: j.title, company: name, url: j.jobUrl || j.applyUrl, posted: j.publishedAt,
       location: (l => l + (j.isRemote && !/remote/i.test(l) ? (l ? ' · ' : '') + 'Remote' : ''))([j.location].concat((j.secondaryLocations || []).map(x => x.location || x)).filter(Boolean).join(' · ')),
       type: j.employmentType || '', payText: j.compensation && (j.compensation.compensationTierSummary || j.compensation.scrapeableCompensationSalarySummary) || '',
-      text: (j.descriptionPlain || strip(j.descriptionHtml)), source: 'Startup boards', applyVia: 'form' }));
+      remote: !!(j.isRemote || j.workplaceType === 'Remote' || remoteOk(j.location)), text: (j.descriptionPlain || strip(j.descriptionHtml)), source: 'Startup boards', applyVia: 'form' }));
   }
   if (ats === 'greenhouse') {
     const d = await getRaw(`https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(slug)}/jobs?content=true`);
-    return (d.jobs || []).filter(j => remoteOk(j.location && j.location.name)).map(j => ({ title: j.title, company: j.company_name || name, url: j.absolute_url, posted: j.first_published || j.updated_at, location: (j.location && j.location.name) || '', text: strip(j.content), source: 'Startup boards', applyVia: 'form' }));
+    return (d.jobs || []).map(j => ({ title: j.title, company: j.company_name || name, url: j.absolute_url, posted: j.first_published || j.updated_at, location: (j.location && j.location.name) || '', remote: remoteOk(j.location && j.location.name), text: strip(j.content), source: 'Startup boards', applyVia: 'form' }));
   }
   if (ats === 'lever') {
     const d = await getRaw(`https://api.lever.co/v0/postings/${encodeURIComponent(slug)}?mode=json`);
-    return (Array.isArray(d) ? d : []).filter(j => remoteOk(j.categories && j.categories.location, j.workplaceType === 'remote')).map(j => ({
+    return (Array.isArray(d) ? d : []).map(j => ({
       title: j.text, company: name, url: j.hostedUrl, posted: j.createdAt, location: [(j.categories || {}).location, j.workplaceType === 'remote' ? 'Remote' : ''].filter(Boolean).join(' · '),
       type: (j.categories || {}).commitment || '', pay: j.salaryRange && j.salaryRange.min ? { min: j.salaryRange.min, max: j.salaryRange.max, cur: j.salaryRange.currency || 'USD', period: periodFrom(j.salaryRange.interval) || 'year' } : null,
-      text: j.descriptionPlain || '', source: 'Startup boards', applyVia: 'form' }));
+      remote: remoteOk(j.categories && j.categories.location, j.workplaceType === 'remote'), text: j.descriptionPlain || '', source: 'Startup boards', applyVia: 'form' }));
   }
   return [];
 }
 
-function sources(queries, boards) {
+const CUR_OF = { gb: 'GBP', us: 'USD', ca: 'CAD', au: 'AUD', nz: 'AUD', za: 'ZAR', ng: 'NGN', se: 'SEK', no: 'NOK', dk: 'DKK', ch: 'CHF', pl: 'PLN', in: 'INR', br: 'BRL', mx: 'MXN' };
+const ADZUNA_CC = new Set(['gb', 'us', 'at', 'au', 'be', 'br', 'ca', 'ch', 'de', 'es', 'fr', 'in', 'it', 'mx', 'nl', 'nz', 'pl', 'sg', 'za']);
+const CAREERJET_LOCALE = { ng: 'en_NG', za: 'en_ZA', ke: 'en_KE', gh: 'en_GH', eg: 'en_EG', gb: 'en_GB', ie: 'en_IE', us: 'en_US', ca: 'en_CA', au: 'en_AU', nz: 'en_NZ', in: 'en_IN', sg: 'en_SG', ae: 'en_AE', sa: 'en_SA', qa: 'en_QA',
+  se: 'sv_SE', no: 'no_NO', dk: 'da_DK', fi: 'fi_FI', de: 'de_DE', at: 'de_AT', ch: 'de_CH', fr: 'fr_FR', be: 'fr_BE', nl: 'nl_NL', es: 'es_ES', pt: 'pt_PT', it: 'it_IT', pl: 'pl_PL', br: 'pt_BR', mx: 'es_MX' };
+const periodWord = w => ({ YEAR: 'year', MONTH: 'month', WEEK: 'week', DAY: 'day', HOUR: 'hour', Y: 'year', M: 'month', W: 'week', D: 'day', H: 'hour' })[String(w || '').toUpperCase()] || null;
+// Searches for the local / multi-country platforms: role × place, shared across everyone, newest needs first.
+function plan(profiles) {
+  const out = [], seen = new Set();
+  for (const p of profiles) {
+    const w = wants(p), roles = targets(p).roles.slice(0, 3);
+    const spots = w.modes.some(m => m !== 'remote') ? w.places : [];
+    for (const r of roles) {
+      for (const pl of spots) { const k = r + '|' + pl.city + '|' + pl.cc; if (!seen.has(k)) { seen.add(k); out.push({ q: r, city: pl.city, country: pl.country, cc: pl.cc, remote: false }); } }
+      if (w.modes.includes('remote')) for (const c of w.countries.slice(0, 3)) { const cc = CC[c] || ''; const k = r + '|remote|' + cc; if (!seen.has(k)) { seen.add(k); out.push({ q: r, city: '', country: c, cc, remote: true }); } }
+    }
+  }
+  return out.slice(0, 24);
+}
+async function jsearch(s, freshest) {
+  const key = process.env.JSEARCH_API_KEY, host = process.env.JSEARCH_HOST || 'api.openwebninja.com';
+  const rapid = /rapidapi/.test(host);
+  const qs = new URLSearchParams({ query: s.remote ? `${s.q} remote` : `${s.q} in ${s.city || s.country}`, page: '1', num_pages: '1', date_posted: freshest ? 'today' : '3days' });
+  if (s.cc) qs.set('country', s.cc);
+  if (s.remote) qs.set('work_from_home', 'true');
+  const url = rapid ? `https://${host}/search?${qs}` : `https://${host}/jsearch/search?${qs}`;
+  const r = await fetch(url, { headers: rapid ? { 'X-RapidAPI-Key': key, 'X-RapidAPI-Host': host } : { 'x-api-key': key }, signal: AbortSignal.timeout(20000) });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const d = await r.json();
+  return (d.data || []).map(j => {
+    const opts = Array.isArray(j.apply_options) ? j.apply_options : [];
+    const direct = opts.find(o => o && o.is_direct) || null;
+    return { title: j.job_title, company: j.employer_name, url: (direct && direct.apply_link) || j.job_apply_link || j.job_google_link,
+      posted: j.job_posted_at_timestamp || j.job_posted_at_datetime_utc, location: [j.job_city, j.job_state, j.job_country].filter(Boolean).join(', ') || (j.job_is_remote ? 'Remote' : ''),
+      remote: !!j.job_is_remote, cc: String(j.job_country || s.cc || '').toLowerCase(), type: j.job_employment_type || '',
+      pay: j.job_min_salary ? { min: j.job_min_salary, max: j.job_max_salary || j.job_min_salary, cur: j.job_salary_currency || 'USD', period: periodWord(j.job_salary_period) || 'year' } : null,
+      listedOn: [...new Set([j.job_publisher, ...opts.map(o => o && o.publisher)].filter(Boolean))], text: String(j.job_description || ''), source: j.job_publisher || 'Google for Jobs' };
+  });
+}
+async function adzuna(s) {
+  const qs = new URLSearchParams({ app_id: process.env.ADZUNA_APP_ID, app_key: process.env.ADZUNA_APP_KEY, what: s.q, max_days_old: '10', sort_by: 'date', results_per_page: '50', 'content-type': 'application/json' });
+  if (s.city) qs.set('where', s.city);
+  const d = await getRaw(`https://api.adzuna.com/v1/api/jobs/${s.cc}/search/1?${qs}`);
+  return (d.results || []).map(j => ({ title: strip(j.title), company: (j.company || {}).display_name || 'Unknown', url: j.redirect_url, posted: j.created,
+    location: (j.location || {}).display_name || '', cc: s.cc, remote: /\bremote\b/i.test((j.title || '') + ' ' + (j.description || '')) && !/hybrid/i.test(j.description || ''),
+    type: [j.contract_time, j.contract_type].filter(Boolean).join(', ').replace(/_/g, ' '),
+    pay: j.salary_min ? { min: j.salary_min, max: j.salary_max || j.salary_min, cur: CUR_OF[s.cc] || 'USD', period: 'year' } : null, text: strip(j.description), source: 'Adzuna' }));
+}
+async function careerjet(s) {
+  const qs = new URLSearchParams({ locale_code: CAREERJET_LOCALE[s.cc] || 'en_GB', keywords: s.remote ? s.q + ' remote' : s.q, sort: 'date', page_size: '50',
+    user_ip: process.env.CAREERJET_USER_IP || '102.89.0.1', user_agent: 'Mozilla/5.0 (compatible; Radar/1.0)' });
+  if (s.city) qs.set('location', s.city);
+  const r = await fetch(`https://search.api.careerjet.net/v4/query?${qs}`, { headers: { Authorization: 'Basic ' + Buffer.from(process.env.CAREERJET_API_KEY + ':').toString('base64'), Accept: 'application/json' }, signal: AbortSignal.timeout(15000) });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const d = await r.json();
+  return (d.jobs || []).map(j => ({ title: strip(j.title), company: j.company || 'Unknown', url: j.url, posted: j.date, location: j.locations || '', cc: s.cc,
+    remote: /\bremote\b/i.test((j.title || '') + ' ' + (j.locations || '')) && !/hybrid/i.test(j.description || ''),
+    pay: j.salary_min ? { min: +j.salary_min, max: +(j.salary_max || j.salary_min), cur: j.salary_currency_code || CUR_OF[s.cc] || 'USD', period: periodWord(j.salary_type) || 'year' } : parsePayText(j.salary),
+    text: strip(j.description), source: 'Careerjet' }));
+}
+// Run up to `cap` searches against one platform; failures don't stop the others.
+async function across(list, cap, fn) {
+  const res = await Promise.allSettled(list.slice(0, cap).map(fn));
+  const ok = res.filter(r => r.status === 'fulfilled');
+  if (list.length && !ok.length) throw (res[0] && res[0].reason) || new Error('failed');
+  return ok.flatMap(r => r.value);
+}
+
+function sources(queries, boards, searches = [], opts = {}) {
   const enc = encodeURIComponent;
-  return {
+  const S = {
     'Remotive': () => many(queries.map(q => `https://remotive.com/api/remote-jobs?search=${enc(q)}&limit=60`), d => (d.jobs || []).map(j => ({ title: j.title, company: j.company_name, url: j.url, posted: j.publication_date, location: j.candidate_required_location, payText: j.salary, type: (j.job_type || '').replace(/_/g, ' '), text: (j.tags || []).join(' ') + ' ' + strip(j.description), source: 'Remotive' }))),
     'Jobicy': () => many(queries.map(q => `https://jobicy.com/api/v2/remote-jobs?count=50&tag=${enc(q)}`), d => (d.jobs || []).map(j => {
       const min = +(j.salaryMin ?? j.annualSalaryMin ?? 0), max = +(j.salaryMax ?? j.annualSalaryMax ?? 0);
@@ -183,9 +286,29 @@ function sources(queries, boards) {
       const status = {}; res.forEach((r, i) => { status[boards[i]] = r.status === 'fulfilled' ? r.value.length : -1; });
       await db.set('pool:boards', status);
       return res.filter(r => r.status === 'fulfilled').flatMap(r => r.value);
-    }
+    },
+    // Europe (mostly Germany): free, no key
+    'Arbeitnow': () => many(['https://www.arbeitnow.com/api/job-board-api'], d => (d.data || []).map(j => ({ title: j.title, company: j.company_name, url: j.url, posted: j.created_at,
+      location: j.location || '', remote: !!j.remote, cc: j.remote ? '' : 'de', type: [].concat(j.job_types || []).join(', '), text: [].concat(j.tags || []).join(' ') + ' ' + strip(j.description), source: 'Arbeitnow' })))
   };
+  // Sweden's public employment service: free, no key, only when someone wants Sweden
+  const se = searches.filter(s => s.cc === 'se');
+  if (se.length) S['Platsbanken'] = () => across([...new Set(se.map(s => s.q))].map(q => ({ q })), 4, async s => {
+    const since = new Date(Date.now() - 10 * DAY).toISOString().slice(0, 19);
+    const d = await getRaw(`https://jobsearch.api.jobtechdev.se/search?q=${enc(s.q)}&published-after=${since}&limit=100&sort=pubdate-desc`);
+    return (d.hits || []).map(j => { const a = j.workplace_address || {}; const desc = (j.description && (j.description.text || j.description.text_formatted)) || '';
+      return { title: j.headline, company: (j.employer || {}).name || 'Unknown', url: j.webpage_url || (j.application_details || {}).url, posted: j.publication_date,
+        location: [a.municipality || a.city, a.region, 'Sweden'].filter(Boolean).join(', '), cc: 'se', remote: !!j.remote_work || /\b(distans|remote)\b/i.test(desc) && !/hybrid/i.test(desc),
+        type: (j.employment_type || {}).label || '', text: strip(desc), source: 'Platsbanken' }; });
+  });
+  // Keyed platforms switch on when their key is set in Vercel
+  const local = searches.filter(s => s.cc);
+  if (process.env.JSEARCH_API_KEY && opts.jsearchCalls > 0) S['Google for Jobs'] = () => across(searches, opts.jsearchCalls, s => jsearch(s, opts.freshest));
+  if (process.env.ADZUNA_APP_ID && process.env.ADZUNA_APP_KEY) { const a = local.filter(s => ADZUNA_CC.has(s.cc)); if (a.length) S['Adzuna'] = () => across(a, 8, adzuna); }
+  if (process.env.CAREERJET_API_KEY) { const c = local.filter(s => CAREERJET_LOCALE[s.cc]); if (c.length) S['Careerjet'] = () => across(c, 8, careerjet); }
+  return S;
 }
+const REMOTE_BOARDS = new Set(['Remotive', 'Jobicy', 'Remote OK', 'Himalayas', 'We Work Remotely', 'Working Nomads']);
 
 /* ---------------- the shared pool ---------------- */
 // Everyone's roles decide what gets searched; every listing keeps the dates it was advertised (for the 10-day rule).
@@ -202,7 +325,17 @@ async function refreshPool({ force = false } = {}) {
     const queries = roleQ.length ? roleQ : ['product designer', 'ux designer'];
     const heads = [...new Set(allT.flatMap(t => t.heads))];
     const boardSpecs = [...new Set(profiles.flatMap(p => p.boards || []).concat(DEFAULT_BOARDS))].slice(0, 30);
-    const S = sources(queries, boardSpecs);
+    const searches = plan(profiles);
+    // JSearch's free plan is 200 calls a month: spend a small daily budget, freshest needs first
+    const budget = Math.max(0, +(process.env.JSEARCH_DAILY || 6));
+    let jsearchCalls = 0;
+    if (process.env.JSEARCH_API_KEY && searches.length && budget) {
+      const used = +(await db.redis('GET', 'jsearch:' + today())) || 0;
+      jsearchCalls = Math.max(0, Math.min(budget - used, Math.ceil(budget / 4), searches.length));
+      if (jsearchCalls) await pipe([['INCRBY', 'jsearch:' + today(), jsearchCalls], ['EXPIRE', 'jsearch:' + today(), 172800]]);
+    }
+    const freshest = profiles.some(p => +p.freshDays === 1);
+    const S = sources(queries, boardSpecs, searches, { jsearchCalls, freshest });
     const existing = await db.hgetall('pool');
     const stats = {}; const updates = {};
     await Promise.all(Object.entries(S).map(async ([name, fn]) => {
@@ -218,7 +351,12 @@ async function refreshPool({ force = false } = {}) {
           const ad = dayStr(d);
           const prev = updates[key] || existing[key];
           const text = String(j.text || '').slice(0, 3000);
-          const rec = prev ? { ...prev } : { key, title, company, url: j.url, location: j.location || '', restrictions: j.restrictions, type: j.type || '', pay: j.pay || parsePayText(j.payText), text, ads: [], sources: [], applyVia: j.applyVia || '' };
+          const remote = j.remote != null ? !!j.remote : REMOTE_BOARDS.has(j.source) ? true : undefined;
+          const rec = prev ? { ...prev } : { key, title, company, url: j.url, location: j.location || '', restrictions: j.restrictions, type: j.type || '', pay: j.pay || parsePayText(j.payText), text, ads: [], sources: [], listedOn: [], applyVia: j.applyVia || '', remote, cc: j.cc || '' };
+          rec.postedAt = Math.max(+rec.postedAt || 0, d.getTime());
+          rec.listedOn = [...new Set([...(rec.listedOn || []), ...(j.listedOn || [j.source])])].slice(0, 12);
+          if (rec.remote === undefined && remote !== undefined) rec.remote = remote;
+          if (!rec.cc && j.cc) rec.cc = j.cc;
           if (!rec.ads.includes(ad)) rec.ads = [...rec.ads, ad].sort();
           if (!rec.sources.includes(j.source)) rec.sources = [...rec.sources, j.source];
           if (!rec.pay) rec.pay = j.pay || parsePayText(j.payText);
@@ -234,7 +372,7 @@ async function refreshPool({ force = false } = {}) {
     const entries = Object.entries(updates);
     for (let i = 0; i < entries.length; i += 50) await db.hset('pool', Object.fromEntries(entries.slice(i, i + 50)));
     if (old.length) await db.hdel('pool', ...old);
-    const m = { at: Date.now(), sources: stats, size: Object.keys(existing).length + entries.filter(([k]) => !existing[k]).length - old.length, queries };
+    const m = { at: Date.now(), sources: stats, size: Object.keys(existing).length + entries.filter(([k]) => !existing[k]).length - old.length, queries, searches: searches.length, jsearchCalls };
     await db.set('pool:meta', m);
     return m;
   } finally { await db.del('pool:lock'); }
@@ -251,11 +389,14 @@ const DONE = new Set(['sent', 'applied', 'skipped']);
 // Listings this person could see: fresh (≤10 days since last advert), fits their roles, location and pay, not already handled.
 function candidates(pool, u) {
   if (!u.profile) return [];
-  const t = targets(u.profile), country = u.profile.country || 'Nigeria', floor = +u.profile.minMonthlyUSD || 1000;
+  const t = targets(u.profile), w = wants(u.profile), floor = +u.profile.minMonthlyUSD || 1000;
+  const fresh = [1, 3, 10].includes(+u.settings.freshDays) ? +u.settings.freshDays : [1, 3, 10].includes(+u.profile.freshDays) ? +u.profile.freshDays : WINDOW;
   return Object.values(pool).map(j => {
     const last = j.ads[j.ads.length - 1];
-    return { ...j, last, first: j.ads[0], age: ageDays(last), re: j.ads.length > 1, monthly: monthlyUSD(j.pay), elig: eligibility(j, country) };
-  }).filter(j => j.age <= WINDOW && j.elig !== 'no' && !(j.monthly != null && j.monthly < floor) && titleFits(j.title, t) && !(u.apps[j.key] && DONE.has(u.apps[j.key].status)));
+    const hours = j.postedAt ? Math.max(0, Math.floor((Date.now() - j.postedAt) / HOUR)) : ageDays(last) * 24;
+    const reach = (j.listedOn && j.listedOn.length) || (j.sources || []).length || 1;
+    return { ...j, last, first: j.ads[0], age: ageDays(last), hours, reach, early: hours <= 24 && reach <= 2, re: j.ads.length > 1, monthly: monthlyUSD(j.pay), elig: placeFit(j, w), mode: isRemoteJob(j) ? 'remote' : isHybrid(j) ? 'hybrid' : 'onsite' };
+  }).filter(j => (fresh === WINDOW ? j.age <= WINDOW : j.hours <= fresh * 24) && j.elig !== 'no' && !(j.monthly != null && j.monthly < floor) && titleFits(j.title, t) && !(u.apps[j.key] && DONE.has(u.apps[j.key].status)));
 }
 async function scoreFor(uid, u, jobs, deadline) {
   const todo = jobs.filter(j => !(u.matches[j.key] && u.matches[j.key].pv === u.pv)).slice(0, 60);
@@ -270,9 +411,9 @@ async function scoreFor(uid, u, jobs, deadline) {
       model: MODELS.match(),
       system: `You are a strict, honest recruiter. Score how well each job fits the candidate (0-100).
 90+: near-perfect fit on role, seniority, skills and work type. 75-89: strong fit, small gaps. 50-74: stretch. <50: poor fit.
-Penalise: different role family, seniority mismatch, missing core skills, pay below their minimum, location rules that exclude the candidate's country (${u.profile.country || 'unknown'}), work types they ruled out, dealbreakers.
+Penalise: different role family, seniority mismatch, missing core skills, pay below their minimum, location rules that exclude them (they live in ${u.profile.country || 'unknown'}; they want ${(wants(u.profile).modes).join('/')} work${wants(u.profile).places.length ? ' in ' + wants(u.profile).places.map(p => p.label).join('; ') : ''}), work types they ruled out, dealbreakers.
 "why": max 18 words, specific (name the matching skill/project). "gaps": max 14 words or "".`,
-      messages: [{ role: 'user', content: `Candidate profile:\n${JSON.stringify(u.profile).slice(0, 6000)}\n\nJobs:\n${JSON.stringify(batch.map(j => ({ id: j.key, title: j.title, company: j.company, location: j.location, type: j.type, pay: j.monthly ? `~$${j.monthly}/month` : 'not stated', snippet: String(j.text || '').slice(0, 900) })).map((x, k) => ({ ...x, id: 'j' + (k + 1) })))}\n\nReturn ONLY a JSON array: [{"id":"j1","score":0,"why":"...","gaps":"..."}], one per job, using the ids given.` }],
+      messages: [{ role: 'user', content: `Candidate profile:\n${JSON.stringify(u.profile).slice(0, 6000)}\n\nJobs:\n${JSON.stringify(batch.map(j => ({ id: j.key, title: j.title, company: j.company, location: j.location, type: j.type, pay: j.monthly ? `~$${j.monthly}/month` : 'not stated', work: j.mode, snippet: String(j.text || '').slice(0, 900) })).map((x, k) => ({ ...x, id: 'j' + (k + 1) })))}\n\nReturn ONLY a JSON array: [{"id":"j1","score":0,"why":"...","gaps":"..."}], one per job, using the ids given.` }],
       maxTokens: 3000
     }); } catch (e) { lastErr = e.message; await pipe([['DECRBY', `use:${uid}:score:${today()}`, batch.length]]).catch(() => {}); continue; }
     let arr = extractJson(text);
@@ -342,12 +483,12 @@ async function feed(uid) {
   const cands = candidates(pool, u);
   const pending = cands.filter(j => !(u.matches[j.key] && u.matches[j.key].pv === u.pv)).length;
   const strong = cands.filter(j => { const m = u.matches[j.key]; return m && m.pv === u.pv && m.score >= Math.min(60, u.settings.threshold); })   // client filters by the chosen level and counts each one
-    .map(j => ({ key: j.key, title: j.title, company: j.company, url: j.url, location: j.location, elig: j.elig, type: j.type, pay: j.pay, monthly: j.monthly, ads: j.ads, age: j.age, re: j.re, sources: j.sources, snippet: String(j.text || '').slice(0, 220), match: u.matches[j.key], app: u.apps[j.key] ? { status: u.apps[j.key].status, method: u.apps[j.key].method } : null }))
-    .sort((a, b) => b.match.score - a.match.score || b.ads[b.ads.length - 1].localeCompare(a.ads[a.ads.length - 1]));
+    .map(j => ({ key: j.key, title: j.title, company: j.company, url: j.url, location: j.location, elig: j.elig, type: j.type, pay: j.pay, monthly: j.monthly, ads: j.ads, age: j.age, hours: j.hours, reach: j.reach, early: j.early, listedOn: j.listedOn || j.sources, mode: j.mode, re: j.re, sources: j.sources, snippet: String(j.text || '').slice(0, 220), match: u.matches[j.key], app: u.apps[j.key] ? { status: u.apps[j.key].status, method: u.apps[j.key].method } : null }))
+    .sort((a, b) => b.match.score - a.match.score || a.hours - b.hours);
   const apps = Object.values(u.apps).sort((a, b) => (b.sentAt || b.createdAt) - (a.sentAt || a.createdAt));
   const waiting = cands.filter(j => !(u.matches[j.key] && u.matches[j.key].pv === u.pv)).slice(0, 24)
-    .map(j => ({ key: j.key, title: j.title, company: j.company, url: j.url, location: j.location, monthly: j.monthly, age: j.age }));
-  return { jobs: strong, pending, waiting, apps, meta: meta || {}, boards: boards || {}, threshold: u.settings.threshold, hasProfile: !!u.profile };
+    .map(j => ({ key: j.key, title: j.title, company: j.company, url: j.url, location: j.location, monthly: j.monthly, age: j.age, hours: j.hours, mode: j.mode }));
+  return { jobs: strong, pending, waiting, apps, meta: meta || {}, boards: boards || {}, threshold: u.settings.threshold, fresh: [1, 3, 10].includes(+u.settings.freshDays) ? +u.settings.freshDays : (u.profile && +u.profile.freshDays) || 10, hasProfile: !!u.profile };
 }
 
-module.exports = { refreshPool, processUser, feed, loadUser, draftFor, candidates, targets, eligibility, monthlyUSD, DEFAULT_BOARDS, today };
+module.exports = { refreshPool, processUser, feed, loadUser, draftFor, candidates, targets, eligibility, monthlyUSD, DEFAULT_BOARDS, today, wants, placeFit, plan };

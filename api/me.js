@@ -38,7 +38,7 @@ module.exports = async (req, res) => {
     }
     case 'settings': {
       const s = body.settings || {};
-      const settings = { threshold: Math.max(50, Math.min(95, +s.threshold || 75)), digest: s.digest !== false, autoDraft: Math.max(0, Math.min(5, Math.round(+(s.autoDraft ?? 2)))) };
+      const settings = { threshold: Math.max(50, Math.min(95, +s.threshold || 75)), digest: s.digest !== false, autoDraft: Math.max(0, Math.min(5, Math.round(+(s.autoDraft ?? 2)))), freshDays: [1, 3, 10].includes(+s.freshDays) ? +s.freshDays : null };
       await db.set('settings:' + uid, settings);
       return res.status(200).json({ ok: true, settings });
     }

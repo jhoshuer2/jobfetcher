@@ -140,9 +140,11 @@ async function sync(force){
 async function showMatches(){
   if(!JR.feed){ $('matchGrid').innerHTML = '<div class="empty">Loading your matches…</div>'; try{ await loadFeed() }catch(e){ $('mMsg').innerHTML = `<p class="msg err">${esc(e.message)}</p>`; return } }
   renderMatches();
-  const stale = !JR.feed.meta.at || Date.now() - JR.feed.meta.at > 6*3600e3;
+  const stale = !JR.feed.meta.at || Date.now() - JR.feed.meta.at > 2*3600e3;
   if(stale || JR.feed.pending) sync();
 }
+// While Matches is open, look again every 30 minutes (the server only re-fetches boards when they're over 2 hours old)
+setInterval(() => { if(location.hash === '#matches' && !document.hidden && !syncing) sync(false) }, 30 * 60e3);
 // Icons (stroke, currentColor)
 const I = {
   ext: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/></svg>',
@@ -158,7 +160,12 @@ const mono = name => { const n = String(name || '?').trim(); let h = 0; for(cons
 const shortLoc = l => { const t = String(l || '').trim(); return !t ? 'Remote' : /anywhere|worldwide/i.test(t) ? 'Worldwide' : t.length > 26 ? t.slice(0, 24) + '…' : t };
 function matchCard(j){
   const left = Math.max(0, 10 - j.age);
-  const fresh = j.age <= 1 ? '<span class="tag new">New</span>' : j.re ? '<span class="tag">Re-posted</span>' : '';
+  const h = j.hours ?? j.age * 24;
+  const when = h < 1 ? 'Just posted' : h < 24 ? `Posted ${h}h ago` : h < 48 ? 'Posted yesterday' : `Posted ${Math.floor(h / 24)} days ago`;
+  const fresh = j.early ? `<span class="tag early" title="Posted recently and listed on only ${j.reach} site${j.reach > 1 ? 's' : ''}: fewer people have seen it yet">Early · ${when.replace('Posted ', '')}</span>`
+    : h < 48 ? `<span class="tag new">${when}</span>` : j.re ? '<span class="tag">Re-posted</span>' : `<span class="tag">${I.clock}${when}</span>`;
+  const mode = j.mode === 'onsite' ? `<span class="tag">${I.pin}On-site</span>` : j.mode === 'hybrid' ? `<span class="tag">${I.pin}Hybrid</span>` : '';
+  const seenOn = (j.listedOn || []).filter(Boolean);
   const pay = j.monthly ? `<span class="tag money">${I.cash}$${j.monthly.toLocaleString()}/mo</span>` : '';
   const ready = j.app ? `<span class="tag ready">${j.app.method === 'email' ? 'Draft ready' : 'Pack ready'}</span>` : '';
   const ends = left <= 3 ? `<span class="tag warn">${I.clock}${left <= 1 ? 'Closes soon' : left + ' days left'}</span>` : '';
@@ -167,7 +174,8 @@ function matchCard(j){
     <div class="jtop">${mono(j.company)}<div class="jtitle"><h3>${esc(j.title)}</h3><p>${esc(j.company)} · ${esc(shortLoc(j.location))}</p></div>
       <div class="ring" style="--v:${j.match.score}" title="Fit score ${j.match.score}/100"><span>${j.match.score}</span></div></div>
     <p class="why">${esc(j.match.why)}${j.match.gaps ? `<small>Gap: ${esc(j.match.gaps)}</small>` : ''}</p>
-    <div class="tags">${fresh}${pay}${ready}${ends}${elig}</div>
+    <div class="tags">${fresh}${mode}${pay}${ready}${ends}${elig}</div>
+    ${seenOn.length ? `<p class="listed">Listed on ${esc(seenOn.slice(0, 3).join(', '))}${seenOn.length > 3 ? ` +${seenOn.length - 3} more` : ''}</p>` : ''}
     <div class="jfoot">
       ${j.app ? `<a class="btn teal" href="#review" data-focus="${esc(j.key)}">Review application</a>` : `<button class="btn teal" data-draft="${esc(j.key)}" title="Uses 1 credit"><span class="spin"></span>Prepare application</button>`}
       <a class="ibtn" href="${esc(j.url)}" target="_blank" rel="noopener" aria-label="Open the job post" title="Open the job post">${I.ext}</a>
@@ -189,7 +197,11 @@ function renderMatches(){
   const th = fitLevel();
   document.querySelectorAll('#fitSeg button').forEach(b => { b.setAttribute('aria-checked', String(+b.dataset.th === th)); b.querySelector('i').textContent = f.jobs.filter(j => j.match.score >= +b.dataset.th).length });
   const jobs = f.jobs.filter(j => j.match.score >= th);
-  $('syncbar').textContent = `${p.country ? 'Remote roles you can do from ' + p.country + '. ' : ''}${f.meta.at ? 'Updated ' + ago(f.meta.at) : 'Not checked yet'}, next check around 7am.`;
+  const modes = (p.workModes || []).map(m => String(m).toLowerCase());
+  const local = modes.some(m => /site|hybrid|office/.test(m)), places = (p.places || []).slice(0, 3).join(', ');
+  const where = local && places ? `Roles in ${places}${modes.some(m => /remote/.test(m)) ? ', plus remote' : ''}. ` : p.country ? `Remote roles you can do from ${p.country}. ` : '';
+  $('syncbar').textContent = `${where}${f.meta.at ? 'Updated ' + ago(f.meta.at) : 'Not checked yet'}. Radar checks every few hours.`;
+  $('freshSel').value = String(f.fresh || 10);
   const waiting = f.waiting || [];
   const scoringCard = j => `<article class="jcard scoring" aria-busy="${syncing}">
     <div class="jtop">${mono(j.company)}<div class="jtitle"><h3>${esc(j.title)}</h3><p>${esc(j.company)} · ${esc(shortLoc(j.location))}</p></div><div class="ring"><span></span></div></div>
@@ -226,6 +238,12 @@ function renderMatches(){
 }
 // Match level: Best fits (85+), Strong (75+), Worth a look (60+). Also sets which matches the morning run drafts for.
 const fitLevel = () => { const t = +(JR.me.settings.threshold || 75); return t >= 85 ? 85 : t >= 75 ? 75 : 60 };
+$('freshSel').addEventListener('change', async () => {
+  const v = +$('freshSel').value, prev = JR.me.settings;
+  JR.me.settings = {...prev, freshDays: v};
+  try{ const r = await api('me', {action:'settings', settings: JR.me.settings}); JR.me.settings = r.settings; await loadFeed(); renderMatches() }
+  catch(err){ JR.me.settings = prev; toast(err.message) }
+});
 $('fitSeg').addEventListener('click', async e => {
   const b = e.target.closest('button[data-th]'); if(!b) return;
   const prev = JR.me.settings;
