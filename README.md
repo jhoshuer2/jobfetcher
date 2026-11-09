@@ -15,7 +15,14 @@ Open to anyone: sign in with Google, get 2 free applications, then buy credit pa
 | Applying | For strong matches Claude drafts: an email (only when the listing itself asks for applications by email, to an address found in the listing) or a form pack. Nothing is sent without approval. Sent / applied / passed jobs are never suggested again. |
 | Daily | Vercel Cron runs at ~7am Lagos time: refreshes jobs, scores, drafts, and emails each person a summary of what's ready. |
 
-Job sources: Remotive, Jobicy, Remote OK, Himalayas, We Work Remotely, Working Nomads, Hacker News "Who is hiring", and Ashby/Greenhouse/Lever startup careers pages. Wellfound has no public API and blocks automated fetching.
+Job sources:
+- Always on, no key: Remotive, Jobicy, Remote OK, Himalayas, We Work Remotely, Working Nomads, Hacker News "Who is hiring", Ashby/Greenhouse/Lever startup careers pages, Arbeitnow (Europe), Platsbanken (Sweden's public employment service, when someone wants Sweden).
+- With a key (optional, add in Vercel): **Google for Jobs via JSearch** (`JSEARCH_API_KEY`; listings from LinkedIn, Indeed, Glassdoor and company sites, with where each is posted), **Adzuna** (`ADZUNA_APP_ID`, `ADZUNA_APP_KEY`; 19 countries incl. South Africa, UK, US), **Careerjet** (`CAREERJET_API_KEY`; dozens of countries incl. Nigeria).
+- Not possible: scraping LinkedIn or Wellfound directly (their terms forbid it and they block it). LinkedIn roles still come through Google for Jobs.
+
+Where people want to work comes from the interview: remote, hybrid and/or on-site, in one or more countries or cities. Remote roles must accept the country they live in; on-site and hybrid roles must be in one of their places. Each person also picks how fresh roles must be (24 hours, 3 days or 10 days). Cards show when a role was posted, which sites list it, and an **Early** tag for roles posted in the last 24 hours on at most 2 sites. Applicant counts aren't available from any of these sources, so "Early" is about timing and reach, not a promise.
+
+Searching runs automatically: every 3 hours from GitHub Actions (`.github/workflows/radar-search.yml`, which needs the repository secret `CRON_SECRET`), the full daily run at ~7am with drafts and summary emails, and whenever someone opens Matches after 2 hours.
 
 ## Setup (one time, ~20 minutes)
 
@@ -50,7 +57,7 @@ Vercel project → **Settings → Environment Variables**:
 | `ANTHROPIC_API_KEY` | console.anthropic.com → API Keys |
 | `ELEVENLABS_API_KEY` | elevenlabs.io → Developers → API Keys (Text to Speech + Speech to Text) |
 
-Optional: `ALLOWED_EMAILS` (make it invite-only), `FREE_APPLICATIONS` (default 2), `PACKS` (JSON, e.g. `[{"id":"p5","apps":5,"amount":3000,"label":"Starter"}]`, amount in naira), `PAY_CURRENCY` (default `NGN`), `ELEVENLABS_VOICE_ID` (default Jessica), `CHAT_MODEL` / `DRAFT_MODEL` (default `claude-sonnet-5-5`), `MATCH_MODEL` (default `claude-haiku-5-5`), `LIMIT_MULTIPLIER` (scales the per-person daily limits), `BOOST_SCORES` (roles one credit unlocks once someone hits the daily scoring limit; default 100), `APP_URL` (if you use a custom domain).
+Optional: `JSEARCH_API_KEY` (+ `JSEARCH_HOST` if you use RapidAPI, e.g. `jsearch.p.rapidapi.com`; `JSEARCH_DAILY` calls per day, default 6), `ADZUNA_APP_ID` / `ADZUNA_APP_KEY`, `CAREERJET_API_KEY`, `ALLOWED_EMAILS` (make it invite-only), `FREE_APPLICATIONS` (default 2), `PACKS` (JSON, e.g. `[{"id":"p5","apps":5,"amount":3000,"label":"Starter"}]`, amount in naira), `PAY_CURRENCY` (default `NGN`), `ELEVENLABS_VOICE_ID` (default Jessica), `CHAT_MODEL` / `DRAFT_MODEL` (default `claude-sonnet-5-5`), `MATCH_MODEL` (default `claude-haiku-5-5`), `LIMIT_MULTIPLIER` (scales the per-person daily limits), `BOOST_SCORES` (roles one credit unlocks once someone hits the daily scoring limit; default 100), `APP_URL` (if you use a custom domain).
 
 ### 4. Paystack
 1. Create an account at paystack.com and complete business verification (needed for live payments).
