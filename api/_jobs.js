@@ -207,11 +207,18 @@ async function jsearch(s, freshest) {
   const qs = new URLSearchParams({ query: s.remote ? `${s.q} remote` : `${s.q} in ${s.city || s.country}`, page: '1', num_pages: '1', date_posted: freshest ? 'today' : '3days' });
   if (s.cc) qs.set('country', s.cc);
   if (s.remote) qs.set('work_from_home', 'true');
-  const url = rapid ? `https://${host}/search?${qs}` : `https://${host}/jsearch/search?${qs}`;
-  const r = await fetch(url, { headers: rapid ? { 'X-RapidAPI-Key': key, 'X-RapidAPI-Host': host } : { 'x-api-key': key }, signal: AbortSignal.timeout(20000) });
+  // OpenWeb Ninja now serves /jsearch/search-v2 (cursor paging); fall back to the older /search path if v2 isn't there
+  const headers = rapid ? { 'X-RapidAPI-Key': key, 'X-RapidAPI-Host': host } : { 'x-api-key': key };
+  const paths = rapid ? ['/search'] : ['/jsearch/search-v2', '/jsearch/search'];
+  let r;
+  for (const path of paths) {
+    r = await fetch(`https://${host}${path}?${qs}`, { headers, signal: AbortSignal.timeout(20000) });
+    if (r.status !== 404) break;
+  }
   if (!r.ok) throw new Error('HTTP ' + r.status);
   const d = await r.json();
-  return (d.data || []).map(j => {
+  const list = Array.isArray(d.data) ? d.data : (d.data && Array.isArray(d.data.jobs)) ? d.data.jobs : Array.isArray(d.jobs) ? d.jobs : [];
+  return list.map(j => {
     const opts = Array.isArray(j.apply_options) ? j.apply_options : [];
     const direct = opts.find(o => o && o.is_direct) || null;
     return { title: j.job_title, company: j.employer_name, url: (direct && direct.apply_link) || j.job_apply_link || j.job_google_link,
