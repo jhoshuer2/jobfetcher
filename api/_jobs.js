@@ -154,7 +154,13 @@ const tag = (item, name) => { const m = item.match(new RegExp(`<${name}\\b[^>]*>
 
 const DEFAULT_BOARDS = [
   'ashby:supabase', 'ashby:posthog', 'ashby:linear', 'ashby:zapier', 'ashby:deel', 'ashby:raycast', 'ashby:replit',
-  'greenhouse:gitlab', 'greenhouse:canonical', 'greenhouse:remotecom', 'greenhouse:doist', 'greenhouse:vercel', 'greenhouse:mozilla'
+  'ashby:notion', 'ashby:ramp', 'ashby:openai', 'ashby:mercury', 'ashby:retool', 'ashby:clickup', 'ashby:cohere',
+  'greenhouse:gitlab', 'greenhouse:canonical', 'greenhouse:remotecom', 'greenhouse:doist', 'greenhouse:vercel', 'greenhouse:mozilla',
+  'greenhouse:figma', 'greenhouse:stripe', 'greenhouse:airbnb', 'greenhouse:discord', 'greenhouse:datadog', 'greenhouse:webflow', 'greenhouse:andela',
+  'greenhouse:anthropic', 'greenhouse:miro', 'greenhouse:grammarly', 'greenhouse:twilio', 'greenhouse:cloudflare', 'greenhouse:flutterwavehq',
+  'lever:paystack', 'lever:kuda', 'lever:moniepoint', 'lever:canva', 'lever:spotify', 'lever:palantir',
+  'workable:flutterwave', 'workable:piggyvest', 'workable:cowrywise', 'workable:zeni', 'workable:truelayer',
+  'smartrecruiters:Canva', 'smartrecruiters:Wise', 'smartrecruiters:Ubisoft', 'smartrecruiters:Bosch'
 ];
 const niceName = slug => slug.replace(/[-_.]+/g, ' ').replace(/\b(com|inc|hq|careers|jobs)\b/gi, '').trim().replace(/\b\w/g, c => c.toUpperCase()) || slug;
 const remoteOk = (loc, isRemote) => isRemote || /remote|anywhere|worldwide|distributed/i.test(loc || '');
@@ -179,6 +185,19 @@ async function fetchBoard(spec) {
       title: j.text, company: name, url: j.hostedUrl, posted: j.createdAt, location: [(j.categories || {}).location, j.workplaceType === 'remote' ? 'Remote' : ''].filter(Boolean).join(' · '),
       type: (j.categories || {}).commitment || '', pay: j.salaryRange && j.salaryRange.min ? { min: j.salaryRange.min, max: j.salaryRange.max, cur: j.salaryRange.currency || 'USD', period: periodFrom(j.salaryRange.interval) || 'year' } : null,
       remote: remoteOk(j.categories && j.categories.location, j.workplaceType === 'remote'), text: j.descriptionPlain || '', source: 'Startup boards', applyVia: 'form' }));
+  }
+  if (ats === 'workable') {
+    const d = await getRaw(`https://apply.workable.com/api/v1/widget/accounts/${encodeURIComponent(slug)}?details=true`);
+    return (d.jobs || []).map(j => ({ title: j.title, company: d.name || name, url: j.url || j.application_url || j.shortlink, posted: j.published_on || j.created_at,
+      location: [j.city, j.state, j.country].filter(Boolean).join(', ') + (j.telecommuting ? ' · Remote' : ''), type: j.employment_type || '', remote: !!j.telecommuting,
+      text: strip(j.description), source: 'Startup boards', applyVia: 'form' }));
+  }
+  if (ats === 'smartrecruiters') {
+    const d = await getRaw(`https://api.smartrecruiters.com/v1/companies/${encodeURIComponent(slug)}/postings?limit=100`);
+    return (d.content || []).map(j => { const l = j.location || {};
+      return { title: j.name, company: (j.company && j.company.name) || name, url: `https://jobs.smartrecruiters.com/${slug}/${j.id}`, posted: j.releasedDate,
+        location: [l.city, l.region, (l.country || '').toUpperCase()].filter(Boolean).join(', ') + (l.remote ? ' · Remote' : ''), cc: String(l.country || '').toLowerCase(),
+        type: (j.typeOfEmployment || {}).label || '', remote: !!l.remote, text: [(j.department || {}).label, (j.function || {}).label, (j.industry || {}).label].filter(Boolean).join(' '), source: 'Startup boards', applyVia: 'form' }; });
   }
   return [];
 }
@@ -249,6 +268,14 @@ async function careerjet(s) {
     pay: j.salary_min ? { min: +j.salary_min, max: +(j.salary_max || j.salary_min), cur: j.salary_currency_code || CUR_OF[s.cc] || 'USD', period: periodWord(j.salary_type) || 'year' } : parsePayText(j.salary),
     text: strip(j.description), source: 'Careerjet' }));
 }
+async function jooble(s) {
+  const r = await fetch(`https://jooble.org/api/${process.env.JOOBLE_API_KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ keywords: s.remote ? s.q + ' remote' : s.q, location: s.city || s.country || '', page: 1 }), signal: AbortSignal.timeout(15000) });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const d = await r.json();
+  return (d.jobs || []).map(j => ({ title: strip(j.title), company: j.company || 'Unknown', url: j.link, posted: j.updated, location: j.location || '', cc: s.cc, type: j.type || '',
+    remote: /\bremote\b/i.test((j.title || '') + ' ' + (j.location || '')) && !/hybrid/i.test(j.snippet || ''), payText: j.salary, text: strip(j.snippet), source: 'Jooble' }));
+}
 // Run up to `cap` searches against one platform; failures don't stop the others.
 async function across(list, cap, fn) {
   const res = await Promise.allSettled(list.slice(0, cap).map(fn));
@@ -295,6 +322,10 @@ function sources(queries, boards, searches = [], opts = {}) {
       return res.filter(r => r.status === 'fulfilled').flatMap(r => r.value);
     },
     // Europe (mostly Germany): free, no key
+    // The Muse: free, no key; mostly US/UK companies
+    'The Muse': () => many([1, 2, 3].map(n => `https://www.themuse.com/api/public/jobs?page=${n}&descending=true`), d => (d.results || []).map(j => ({ title: j.name, company: (j.company || {}).name, url: (j.refs || {}).landing_page, posted: j.publication_date,
+      location: (j.locations || []).map(l => l.name).join(' · '), remote: (j.locations || []).some(l => /flexible|remote/i.test(l.name)), type: (j.levels || []).map(l => l.name).join(', '),
+      text: [].concat(j.categories || []).map(c => c.name).join(' ') + ' ' + strip(j.contents), source: 'The Muse' }))),
     'Arbeitnow': () => many(['https://www.arbeitnow.com/api/job-board-api'], d => (d.data || []).map(j => ({ title: j.title, company: j.company_name, url: j.url, posted: j.created_at,
       location: j.location || '', remote: !!j.remote, cc: j.remote ? '' : 'de', type: [].concat(j.job_types || []).join(', '), text: [].concat(j.tags || []).join(' ') + ' ' + strip(j.description), source: 'Arbeitnow' })))
   };
@@ -313,6 +344,7 @@ function sources(queries, boards, searches = [], opts = {}) {
   if (process.env.JSEARCH_API_KEY && opts.jsearchCalls > 0) S['Google for Jobs'] = () => across(searches, opts.jsearchCalls, s => jsearch(s, opts.freshest));
   if (process.env.ADZUNA_APP_ID && process.env.ADZUNA_APP_KEY) { const a = local.filter(s => ADZUNA_CC.has(s.cc)); if (a.length) S['Adzuna'] = () => across(a, 8, adzuna); }
   if (process.env.CAREERJET_API_KEY) { const c = local.filter(s => CAREERJET_LOCALE[s.cc]); if (c.length) S['Careerjet'] = () => across(c, 8, careerjet); }
+  if (process.env.JOOBLE_API_KEY) { const c = searches.filter(s => s.cc || s.remote); if (c.length) S['Jooble'] = () => across(c, 8, jooble); }
   return S;
 }
 const REMOTE_BOARDS = new Set(['Remotive', 'Jobicy', 'Remote OK', 'Himalayas', 'We Work Remotely', 'Working Nomads']);
@@ -331,7 +363,7 @@ async function refreshPool({ force = false } = {}) {
     const roleQ = [...new Set(allT.flatMap(t => t.roles))].slice(0, 10);
     const queries = roleQ.length ? roleQ : ['product designer', 'ux designer'];
     const heads = [...new Set(allT.flatMap(t => t.heads))];
-    const boardSpecs = [...new Set(profiles.flatMap(p => p.boards || []).concat(DEFAULT_BOARDS))].slice(0, 30);
+    const boardSpecs = [...new Set(profiles.flatMap(p => p.boards || []).concat(DEFAULT_BOARDS))].slice(0, 60);
     const searches = plan(profiles);
     // JSearch's free plan is 200 calls a month: spend a small daily budget, freshest needs first
     const budget = Math.max(0, +(process.env.JSEARCH_DAILY || 6));
