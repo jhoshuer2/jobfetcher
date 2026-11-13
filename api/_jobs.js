@@ -394,7 +394,7 @@ async function refreshPool({ force = false } = {}) {
           const prev = updates[key] || existing[key];
           const text = String(j.text || '').slice(0, 3000);
           const remote = j.remote != null ? !!j.remote : REMOTE_BOARDS.has(j.source) ? true : undefined;
-          const rec = prev ? { ...prev } : { key, title, company, url: j.url, location: j.location || '', restrictions: j.restrictions, type: j.type || '', pay: j.pay || parsePayText(j.payText), text, ads: [], sources: [], listedOn: [], applyVia: j.applyVia || '', remote, cc: j.cc || '' };
+          const rec = prev ? { ...prev } : { key, title: title.slice(0, 200), company: company.slice(0, 120), url: String(j.url || '').slice(0, 800), location: String(j.location || '').slice(0, 200), restrictions: Array.isArray(j.restrictions) ? j.restrictions.slice(0, 80) : j.restrictions, type: j.type || '', pay: j.pay || parsePayText(j.payText), text, ads: [], sources: [], listedOn: [], applyVia: j.applyVia || '', remote, cc: j.cc || '' };
           rec.postedAt = Math.max(+rec.postedAt || 0, d.getTime());
           rec.listedOn = [...new Set([...(rec.listedOn || []), ...(j.listedOn || [j.source])])].slice(0, 12);
           if (rec.remote === undefined && remote !== undefined) rec.remote = remote;
@@ -412,7 +412,7 @@ async function refreshPool({ force = false } = {}) {
     // write changes, prune listings not advertised for 30 days
     const old = Object.values(existing).filter(j => ageDays(j.ads[j.ads.length - 1]) > 30).map(j => j.key);
     const entries = Object.entries(updates);
-    for (let i = 0; i < entries.length; i += 50) await db.hset('pool', Object.fromEntries(entries.slice(i, i + 50)));
+    for (let i = 0; i < entries.length; i += 25) await db.hset('pool', Object.fromEntries(entries.slice(i, i + 25)));
     if (old.length) await db.hdel('pool', ...old);
     const m = { at: Date.now(), sources: stats, size: Object.keys(existing).length + entries.filter(([k]) => !existing[k]).length - old.length, queries, searches: searches.length, jsearchCalls };
     await db.set('pool:meta', m);

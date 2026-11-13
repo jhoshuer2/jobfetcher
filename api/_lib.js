@@ -53,8 +53,17 @@ const db = {
   },
   async hget(k, f) { const v = await redis('HGET', k, f); return v == null ? null : JSON.parse(v); },
   async hset(k, obj) {
-    const flat = Object.entries(obj).flatMap(([f, v]) => [f, JSON.stringify(v)]);
-    return flat.length ? redis('HSET', k, ...flat) : 0;
+    // Upstash rejects any single request over 10 MB: send big hashes in ~1.5 MB pieces, and say which key if one field alone is too large
+    let n = 0, part = [], size = 0;
+    const flush = async () => { if (part.length) { n += await redis('HSET', k, ...part); part = []; size = 0; } };
+    for (const [f, v] of Object.entries(obj)) {
+      const val = JSON.stringify(v), len = f.length + val.length;
+      if (len > 8_000_000) throw new Error(`Database error: "${f}" in ${k.split(':')[0]} is too large to save (${(len / 1e6).toFixed(1)} MB)`);
+      if (size + len > 1_500_000) await flush();
+      part.push(f, val); size += len;
+    }
+    await flush();
+    return n;
   },
   async hdel(k, ...f) { return f.length ? redis('HDEL', k, ...f) : 0; },
   redis, pipe
