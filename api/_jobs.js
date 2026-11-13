@@ -129,11 +129,14 @@ function targets(profile) {
   const heads = new Set();
   roles.forEach(r => { const w = r.split(/[\s/,-]+/).filter(x => x && !GENERIC.has(x)); if (w.length) heads.add(w[w.length - 1].replace(/s$/, '')); });
   if (roles.some(r => /\bux\b|\bui\b|user experience|product design/.test(r))) ['ux', 'ui', 'designer', 'design'].forEach(h => heads.add(h));
-  return { roles, keywords, heads: [...heads] };
+  // support-style roles go by many titles (agent, specialist, representative, associate…): match the family, not one noun
+  const fam = roles.some(r => /customer|client|support|help ?desk|call cent/.test(r)) ? /\b(customer|client)\s+(service|support|success|care|experience|happiness)|\b(support|service)\s+(specialist|agent|representative|rep|associate|advisor|executive|officer|engineer)|help ?desk|call cent(er|re)|contact cent(er|re)/ : null;
+  return { roles, keywords, heads: [...heads], fam };
 }
 function titleFits(title, t) {
   const s = String(title || '').toLowerCase();
   if (t.roles.some(r => s.includes(r))) return true;
+  if (t.fam && t.fam.test(s)) return true;
   return t.heads.some(h => new RegExp('\\b' + h.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(s|er|ers)?\\b').test(s));
 }
 
@@ -384,7 +387,7 @@ async function refreshPool({ force = false } = {}) {
           if (!j || !j.title || !j.company) continue;
           const title = strip(j.title), company = strip(j.company);
           // keep only listings someone could plausibly want (their role's head noun in the title)
-          if (heads.length && !titleFits(title, { roles: queries.map(q => q.toLowerCase()), heads })) continue;
+          if (heads.length && !titleFits(title, { roles: queries.map(q => q.toLowerCase()), heads, fam: allT.map(t => t.fam).find(Boolean) })) continue;
           const d = toDate(j.posted); if (!d) continue;
           const key = normKey(company, title); if (key === '|') continue;
           const ad = dayStr(d);
