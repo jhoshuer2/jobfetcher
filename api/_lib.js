@@ -51,6 +51,16 @@ const db = {
     for (let i = 0; i < arr.length; i += 2) { try { o[arr[i]] = JSON.parse(arr[i + 1]); } catch { } }
     return o;
   },
+  // Big hashes (the shared job pool) are read a page at a time so no single reply nears Upstash's 10 MB limit
+  async hscanAll(k) {
+    const o = {}; let cur = '0';
+    do {
+      const r = await redis('HSCAN', k, cur, 'COUNT', '200'); cur = String(r[0]);
+      const arr = r[1] || [];
+      for (let i = 0; i < arr.length; i += 2) { try { o[arr[i]] = JSON.parse(arr[i + 1]); } catch { } }
+    } while (cur !== '0');
+    return o;
+  },
   async hget(k, f) { const v = await redis('HGET', k, f); return v == null ? null : JSON.parse(v); },
   async hset(k, obj) {
     // Upstash rejects any single request over 10 MB: send big hashes in ~1.5 MB pieces, and say which key if one field alone is too large

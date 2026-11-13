@@ -15,7 +15,7 @@ module.exports = async (req, res) => {
       if (!requireEnv(res, 'ANTHROPIC_API_KEY')) return;
       const u = await loadUser(user.uid);
       if (!u.profile) return res.status(400).json({ error: 'Finish your Radar interview first' });
-      const pool = await db.hgetall('pool');
+      const pool = await db.hscanAll('pool');
       const job = candidates(pool, u).find(j => j.key === key) || (pool[key] && { ...pool[key], key });
       if (!job) return res.status(404).json({ error: 'That job is no longer on the board' });
       if (await db.hget(appsKey, key)) return res.status(409).json({ error: 'Already prepared, see Review' });

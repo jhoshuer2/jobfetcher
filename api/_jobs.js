@@ -378,7 +378,7 @@ async function refreshPool({ force = false } = {}) {
     }
     const freshest = profiles.some(p => +p.freshDays === 1);
     const S = sources(queries, boardSpecs, searches, { jsearchCalls, freshest });
-    const existing = await db.hgetall('pool');
+    const existing = await db.hscanAll('pool');
     const stats = {}; const updates = {};
     await Promise.all(Object.entries(S).map(async ([name, fn]) => {
       try {
@@ -388,11 +388,11 @@ async function refreshPool({ force = false } = {}) {
           const title = strip(j.title), company = strip(j.company);
           // keep only listings someone could plausibly want (their role's head noun in the title)
           if (heads.length && !titleFits(title, { roles: queries.map(q => q.toLowerCase()), heads, fam: allT.map(t => t.fam).find(Boolean) })) continue;
-          const d = toDate(j.posted); if (!d) continue;
+          const d = toDate(j.posted); if (!d || Date.now() - d.getTime() > (WINDOW + 4) * DAY) continue;   // nobody can see older than the 10-day window
           const key = normKey(company, title); if (key === '|') continue;
           const ad = dayStr(d);
           const prev = updates[key] || existing[key];
-          const text = String(j.text || '').slice(0, 3000);
+          const text = String(j.text || '').slice(0, 1800);
           const remote = j.remote != null ? !!j.remote : REMOTE_BOARDS.has(j.source) ? true : undefined;
           const rec = prev ? { ...prev } : { key, title: title.slice(0, 200), company: company.slice(0, 120), url: String(j.url || '').slice(0, 800), location: String(j.location || '').slice(0, 200), restrictions: Array.isArray(j.restrictions) ? j.restrictions.slice(0, 80) : j.restrictions, type: j.type || '', pay: j.pay || parsePayText(j.payText), text, ads: [], sources: [], listedOn: [], applyVia: j.applyVia || '', remote, cc: j.cc || '' };
           rec.postedAt = Math.max(+rec.postedAt || 0, d.getTime());
@@ -410,10 +410,10 @@ async function refreshPool({ force = false } = {}) {
       } catch (e) { stats[name] = { ok: false, err: String(e.message || e).slice(0, 120) }; }
     }));
     // write changes, prune listings not advertised for 30 days
-    const old = Object.values(existing).filter(j => ageDays(j.ads[j.ads.length - 1]) > 30).map(j => j.key);
+    const old = Object.values(existing).filter(j => !updates[j.key] && ageDays(j.ads[j.ads.length - 1]) > WINDOW + 4).map(j => j.key);
     const entries = Object.entries(updates);
     for (let i = 0; i < entries.length; i += 25) await db.hset('pool', Object.fromEntries(entries.slice(i, i + 25)));
-    if (old.length) await db.hdel('pool', ...old);
+    for (let i = 0; i < old.length; i += 200) await db.hdel('pool', ...old.slice(i, i + 200));
     const m = { at: Date.now(), sources: stats, size: Object.keys(existing).length + entries.filter(([k]) => !existing[k]).length - old.length, queries, searches: searches.length, jsearchCalls };
     await db.set('pool:meta', m);
     return m;
@@ -499,7 +499,7 @@ Cover letter: 180-260 words. Answers: 3-5 likely form questions with concise ans
 async function processUser(uid, deadline, { draft = true } = {}) {
   const user = await db.get('user:' + uid); if (!user) return { scored: 0, drafted: [] };
   const u = await loadUser(uid); if (!u.profile) return { scored: 0, drafted: [] };
-  const pool = await db.hgetall('pool');
+  const pool = await db.hscanAll('pool');
   const cands = candidates(pool, u);
   const scored = await scoreFor(uid, u, cands, deadline);
   const drafted = [];
@@ -521,7 +521,7 @@ async function processUser(uid, deadline, { draft = true } = {}) {
 
 // What the Matches screen shows: strong matches only, with application status.
 async function feed(uid) {
-  const [u, pool, meta, boards] = await Promise.all([loadUser(uid), db.hgetall('pool'), db.get('pool:meta'), db.get('pool:boards')]);
+  const [u, pool, meta, boards] = await Promise.all([loadUser(uid), db.hscanAll('pool'), db.get('pool:meta'), db.get('pool:boards')]);
   const cands = candidates(pool, u);
   const pending = cands.filter(j => !(u.matches[j.key] && u.matches[j.key].pv === u.pv)).length;
   const strong = cands.filter(j => { const m = u.matches[j.key]; return m && m.pv === u.pv && m.score >= Math.min(60, u.settings.threshold); })   // client filters by the chosen level and counts each one
